@@ -54,7 +54,7 @@ export default function RequestForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-surface border border-border rounded-lg p-5 space-y-4"
+      className="bg-surface border border-border rounded-xl p-5 shadow-sm space-y-4"
     >
       <div>
         <label className="block text-sm font-medium text-ink mb-1.5">
@@ -66,7 +66,7 @@ export default function RequestForm({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. Add bulk CSV export to invoices page"
-          className="w-full px-3 py-2 rounded-md border border-border bg-bg text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+          className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
         />
       </div>
 
@@ -80,7 +80,7 @@ export default function RequestForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="What do you need, and why? Include context that'll help Product and Engineering understand the request."
-          className="w-full px-3 py-2 rounded-md border border-border bg-bg text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent resize-none"
+          className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent resize-none"
         />
       </div>
 
@@ -92,7 +92,7 @@ export default function RequestForm({
           <select
             value={type}
             onChange={(e) => setType(e.target.value as RequestType)}
-            className="w-full px-3 py-2 rounded-md border border-border bg-bg text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+            className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
           >
             <option value="new_feature">New Feature</option>
             <option value="enhancement">Enhancement</option>
@@ -106,7 +106,7 @@ export default function RequestForm({
           <select
             value={urgency}
             onChange={(e) => setUrgency(e.target.value as RequestUrgency)}
-            className="w-full px-3 py-2 rounded-md border border-border bg-bg text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+            className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -116,7 +116,7 @@ export default function RequestForm({
       </div>
 
       {error && (
-        <p className="text-sm text-status-delayed bg-status-delayed-bg px-3 py-2 rounded-md">
+        <p className="text-sm text-status-delayed bg-status-delayed-bg px-3 py-2 rounded-lg">
           {error}
         </p>
       )}
@@ -125,7 +125,7 @@ export default function RequestForm({
         <button
           type="submit"
           disabled={loading}
-          className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-accent/90 transition-colors disabled:opacity-60"
+          className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-accent/90 shadow-sm hover:shadow transition-all disabled:opacity-60"
         >
           {loading ? "Submitting…" : "Submit request"}
         </button>

@@ -10,6 +10,7 @@ create extension if not exists "pgcrypto";
 -- ENUM TYPES
 -- ----------------------------
 create type request_status as enum (
+  'submitted',
   'in_review',
   'discussion_with_tech',
   'in_sprint',
@@ -77,7 +78,7 @@ create table requests (
   type request_type not null default 'enhancement',
   urgency request_urgency not null default 'medium',
   department text,
-  status request_status not null default 'in_review',
+  status request_status not null default 'submitted',
   sprint_name text,                            -- e.g. "Sprint 24" once it's scheduled
   requested_by uuid not null references profiles(id) on delete cascade,
   assigned_to uuid references profiles(id),     -- which product team member owns it
@@ -118,6 +119,7 @@ create table status_history (
 create index status_history_request_id_idx on status_history(request_id);
 
 -- Automatically log a history row whenever a request's status changes
+-- (security definer so it can write to status_history regardless of the caller's RLS)
 create or replace function log_status_change()
 returns trigger as $$
 begin
@@ -130,7 +132,7 @@ begin
   end if;
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql security definer;
 
 create trigger requests_log_status_change
   after insert or update on requests

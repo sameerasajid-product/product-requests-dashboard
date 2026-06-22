@@ -51,7 +51,7 @@ function AdminCard({
   }
 
   return (
-    <div className="bg-surface border border-border rounded-lg p-4">
+    <div className="bg-surface border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-center gap-2 mb-1.5">
         <span className="ticket-id text-xs text-ink-muted">
           PR-{String(request.ticket_number).padStart(4, "0")}
@@ -93,7 +93,7 @@ function AdminCard({
           <select
             value={nextStatus}
             onChange={(e) => setNextStatus(e.target.value as RequestStatus)}
-            className="w-full text-xs px-2 py-1.5 rounded-md border border-border bg-bg"
+            className="w-full text-xs px-2 py-1.5 rounded-lg border border-border bg-bg"
           >
             {STATUS_ORDER.map((s) => (
               <option key={s} value={s}>
@@ -106,20 +106,20 @@ function AdminCard({
             value={sprintName}
             onChange={(e) => setSprintName(e.target.value)}
             placeholder="Sprint name (e.g. Sprint 24)"
-            className="w-full text-xs px-2 py-1.5 rounded-md border border-border bg-bg"
+            className="w-full text-xs px-2 py-1.5 rounded-lg border border-border bg-bg"
           />
           <input
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Note (optional, e.g. reason for delay)"
-            className="w-full text-xs px-2 py-1.5 rounded-md border border-border bg-bg"
+            className="w-full text-xs px-2 py-1.5 rounded-lg border border-border bg-bg"
           />
           <div className="flex items-center gap-2">
             <button
               onClick={handleSave}
               disabled={saving}
-              className="text-xs font-medium bg-accent text-white px-3 py-1.5 rounded-md disabled:opacity-60"
+              className="text-xs font-medium bg-accent text-white px-3 py-1.5 rounded-lg shadow-sm hover:shadow transition-shadow disabled:opacity-60"
             >
               {saving ? "Saving…" : "Save"}
             </button>

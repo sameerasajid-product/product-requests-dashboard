@@ -83,7 +83,7 @@ export default function RequestsClient({
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-md hover:bg-accent/90 transition-colors"
+            className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-accent/90 shadow-sm hover:shadow transition-all"
           >
             + New request
           </button>

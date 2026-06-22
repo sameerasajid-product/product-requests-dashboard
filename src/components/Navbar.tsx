@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -32,9 +33,12 @@ export default function Navbar({
     <nav className="border-b border-border bg-surface">
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <span className="text-xs font-mono uppercase tracking-wide text-ink-muted">
-            Product Requests
-          </span>
+          <div className="flex items-center gap-2">
+            <Image src="/logo-mark.png" alt="Swich" width={28} height={28} className="h-7 w-7 object-contain" />
+            <span className="text-xs font-mono uppercase tracking-wide text-ink-muted">
+              Product Requests
+            </span>
+          </div>
           <div className="flex items-center gap-1">
             <Link href="/requests" className={linkClass("/requests")}>
               My Requests
