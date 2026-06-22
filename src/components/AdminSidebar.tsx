@@ -37,13 +37,13 @@ export default function AdminSidebar({
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
-        <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/[0.06] text-admin-ink text-sm font-medium">
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-accent-soft text-accent text-sm font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-accent" />
           Board
         </div>
         <a
           href="/requests"
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-admin-ink-muted text-sm hover:bg-white/[0.04] hover:text-admin-ink transition-colors"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-admin-ink-muted text-sm hover:bg-black/[0.04] hover:text-admin-ink transition-colors"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-admin-ink-muted" />
           My Requests
@@ -61,7 +61,7 @@ export default function AdminSidebar({
         </div>
         <button
           onClick={handleSignOut}
-          className="w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-admin-ink-muted hover:bg-white/[0.04] hover:text-admin-ink transition-colors"
+          className="w-full text-left px-3 py-2 rounded-lg text-xs font-medium text-admin-ink-muted hover:bg-black/[0.04] hover:text-admin-ink transition-colors"
         >
           Sign out
         </button>

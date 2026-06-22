@@ -8,6 +8,7 @@ import {
   STATUS_LABELS,
   TYPE_LABELS,
   URGENCY_LABELS,
+  RATING_CONFIG,
 } from "@/lib/types";
 import StatusBadge from "./StatusBadge";
 
@@ -107,6 +108,15 @@ export default function RequestCard({
         <p className="text-xs text-accent mt-3">
           Expected: {request.eta_label}
         </p>
+      )}
+
+      {request.rating && (
+        <div
+          className={`inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-full text-xs font-medium border ${RATING_CONFIG[request.rating].text} ${RATING_CONFIG[request.rating].bg} ${RATING_CONFIG[request.rating].border}`}
+        >
+          <span>{RATING_CONFIG[request.rating].emoji}</span>
+          <span>Product team: {RATING_CONFIG[request.rating].caption}</span>
+        </div>
       )}
 
       <div className="flex items-center justify-between mt-3">

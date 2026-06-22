@@ -9,7 +9,7 @@ import {
   RequestAttachment,
   STATUS_ORDER,
   STATUS_LABELS,
-  STATUS_COLORS_DARK,
+  STATUS_COLORS,
   TYPE_LABELS,
   URGENCY_LABELS,
   RATING_CONFIG,
@@ -58,7 +58,7 @@ function StatsBar({ requests }: { requests: ProductRequest[] }) {
         <p className="text-xs text-admin-ink-muted mt-0.5">Total requests</p>
       </div>
       {STATUS_ORDER.map((status) => {
-        const colors = STATUS_COLORS_DARK[status];
+        const colors = STATUS_COLORS[status];
         return (
           <div
             key={status}
@@ -72,9 +72,9 @@ function StatsBar({ requests }: { requests: ProductRequest[] }) {
         );
       })}
       {counts.highUrgency > 0 && (
-        <div className="col-span-2 sm:col-span-4 lg:col-span-8 bg-statusd-delayed/10 border border-statusd-delayed/30 rounded-xl px-4 py-2.5 flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-statusd-delayed flex-shrink-0" />
-          <p className="text-xs text-statusd-delayed font-medium">
+        <div className="col-span-2 sm:col-span-4 lg:col-span-8 bg-status-delayed-bg border border-status-delayed/30 rounded-xl px-4 py-2.5 flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-status-delayed flex-shrink-0" />
+          <p className="text-xs text-status-delayed font-medium">
             {counts.highUrgency} high-urgency request{counts.highUrgency > 1 ? "s" : ""} still open
           </p>
         </div>
@@ -182,7 +182,7 @@ function AdminCard({
   const statusOptions = STATUS_ORDER.filter((s) => s !== "submitted");
 
   return (
-    <div className="bg-admin-surface border border-admin-border rounded-xl p-4 hover:border-white/20 transition-colors">
+    <div className="bg-admin-surface border border-admin-border rounded-xl p-4 hover:border-black/10 transition-colors">
       <div className="flex items-center gap-2 mb-1.5">
         <span className="ticket-id text-xs text-admin-ink-muted">
           PR-{String(request.ticket_number).padStart(4, "0")}
@@ -190,8 +190,8 @@ function AdminCard({
         <span
           className={`text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded ${
             request.urgency === "high"
-              ? "bg-statusd-delayed/10 text-statusd-delayed"
-              : "bg-white/5 text-admin-ink-muted"
+              ? "bg-status-delayed-bg text-status-delayed"
+              : "bg-black/5 text-admin-ink-muted"
           }`}
         >
           {URGENCY_LABELS[request.urgency]}
@@ -232,7 +232,7 @@ function AdminCard({
             disabled={ratingSaving}
             title={RATING_CONFIG[r].caption}
             className={`text-sm w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
-              request.rating === r ? RATING_CONFIG[r].bg : "hover:bg-white/5"
+              request.rating === r ? RATING_CONFIG[r].bg : "hover:bg-black/5"
             }`}
           >
             {RATING_CONFIG[r].emoji}
@@ -251,14 +251,14 @@ function AdminCard({
           <button
             onClick={handleApprove}
             disabled={saving}
-            className="text-xs font-medium bg-statusd-deployed/15 text-statusd-deployed px-3 py-1.5 rounded-lg hover:bg-statusd-deployed/25 transition-colors disabled:opacity-60"
+            className="text-xs font-medium bg-status-deployed/10 text-status-deployed px-3 py-1.5 rounded-lg hover:bg-status-deployed/20 transition-colors disabled:opacity-60"
           >
             ✅ Approve
           </button>
           <button
             onClick={() => setRejecting(true)}
             disabled={saving}
-            className="text-xs font-medium bg-statusd-delayed/15 text-statusd-delayed px-3 py-1.5 rounded-lg hover:bg-statusd-delayed/25 transition-colors disabled:opacity-60"
+            className="text-xs font-medium bg-status-delayed/10 text-status-delayed px-3 py-1.5 rounded-lg hover:bg-status-delayed/20 transition-colors disabled:opacity-60"
           >
             ❌ Reject
           </button>
@@ -278,7 +278,7 @@ function AdminCard({
             <button
               onClick={handleReject}
               disabled={saving}
-              className="text-xs font-medium bg-statusd-delayed text-white px-3 py-1.5 rounded-lg disabled:opacity-60"
+              className="text-xs font-medium bg-status-delayed text-white px-3 py-1.5 rounded-lg disabled:opacity-60"
             >
               {saving ? "Rejecting…" : "Confirm reject"}
             </button>
@@ -427,7 +427,7 @@ export default function KanbanBoard() {
       <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
         {STATUS_ORDER.map((status) => {
           const columnRequests = requests.filter((r) => r.status === status);
-          const colors = STATUS_COLORS_DARK[status];
+          const colors = STATUS_COLORS[status];
           return (
             <div key={status} className="min-w-0">
               <div className="flex items-center justify-between mb-3 px-1">

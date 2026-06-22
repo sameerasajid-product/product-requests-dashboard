@@ -35,31 +35,23 @@ export const STATUS_ORDER: RequestStatus[] = [
 
 export const STATUS_COLORS: Record<
   RequestStatus,
-  { text: string; bg: string }
+  { text: string; bg: string; border: string }
 > = {
-  submitted: { text: "text-status-submitted", bg: "bg-status-submitted-bg" },
-  in_review: { text: "text-status-review", bg: "bg-status-review-bg" },
+  submitted: { text: "text-status-submitted", bg: "bg-status-submitted-bg", border: "border-status-submitted/30" },
+  in_review: { text: "text-status-review", bg: "bg-status-review-bg", border: "border-status-review/30" },
   discussion_with_tech: {
     text: "text-status-discussion",
     bg: "bg-status-discussion-bg",
+    border: "border-status-discussion/30",
   },
-  in_sprint: { text: "text-status-sprint", bg: "bg-status-sprint-bg" },
-  deployed: { text: "text-status-deployed", bg: "bg-status-deployed-bg" },
+  in_sprint: { text: "text-status-sprint", bg: "bg-status-sprint-bg", border: "border-status-sprint/30" },
+  deployed: { text: "text-status-deployed", bg: "bg-status-deployed-bg", border: "border-status-deployed/30" },
   delayed_next_sprint: {
     text: "text-status-delayed",
     bg: "bg-status-delayed-bg",
+    border: "border-status-delayed/30",
   },
-  rejected: { text: "text-status-rejected", bg: "bg-status-rejected-bg" },
-};
-
-export const STATUS_COLORS_DARK: Record<RequestStatus, { text: string; bg: string; border: string }> = {
-  submitted: { text: "text-statusd-submitted", bg: "bg-statusd-submitted/10", border: "border-statusd-submitted/30" },
-  in_review: { text: "text-statusd-review", bg: "bg-statusd-review/10", border: "border-statusd-review/30" },
-  discussion_with_tech: { text: "text-statusd-discussion", bg: "bg-statusd-discussion/10", border: "border-statusd-discussion/30" },
-  in_sprint: { text: "text-statusd-sprint", bg: "bg-statusd-sprint/10", border: "border-statusd-sprint/30" },
-  deployed: { text: "text-statusd-deployed", bg: "bg-statusd-deployed/10", border: "border-statusd-deployed/30" },
-  delayed_next_sprint: { text: "text-statusd-delayed", bg: "bg-statusd-delayed/10", border: "border-statusd-delayed/30" },
-  rejected: { text: "text-statusd-rejected", bg: "bg-statusd-rejected/10", border: "border-statusd-rejected/30" },
+  rejected: { text: "text-status-rejected", bg: "bg-status-rejected-bg", border: "border-status-rejected/30" },
 };
 
 export const TYPE_LABELS: Record<RequestType, string> = {
@@ -78,11 +70,11 @@ export const RATING_CONFIG: Record<
   RequestRating,
   { emoji: string; caption: string; text: string; bg: string; border: string }
 > = {
-  excellent: { emoji: "🔥", caption: "Absolute banger", text: "text-statusd-deployed", bg: "bg-statusd-deployed/10", border: "border-statusd-deployed/30" },
-  good: { emoji: "👍", caption: "Solid idea", text: "text-statusd-sprint", bg: "bg-statusd-sprint/10", border: "border-statusd-sprint/30" },
-  meh: { emoji: "😐", caption: "Mid", text: "text-statusd-submitted", bg: "bg-statusd-submitted/10", border: "border-statusd-submitted/30" },
-  weak: { emoji: "👎", caption: "Not convinced", text: "text-statusd-review", bg: "bg-statusd-review/10", border: "border-statusd-review/30" },
-  nonsense: { emoji: "🗑️", caption: "Into the void", text: "text-statusd-delayed", bg: "bg-statusd-delayed/10", border: "border-statusd-delayed/30" },
+  excellent: { emoji: "🔥", caption: "Absolute banger", text: "text-status-deployed", bg: "bg-status-deployed-bg", border: "border-status-deployed/30" },
+  good: { emoji: "👍", caption: "Solid idea", text: "text-status-sprint", bg: "bg-status-sprint-bg", border: "border-status-sprint/30" },
+  meh: { emoji: "😐", caption: "Mid", text: "text-status-submitted", bg: "bg-status-submitted-bg", border: "border-status-submitted/30" },
+  weak: { emoji: "👎", caption: "Not convinced", text: "text-status-review", bg: "bg-status-review-bg", border: "border-status-review/30" },
+  nonsense: { emoji: "🗑️", caption: "Into the void", text: "text-status-delayed", bg: "bg-status-delayed-bg", border: "border-status-delayed/30" },
 };
 
 export const RATING_ORDER: RequestRating[] = ["excellent", "good", "meh", "weak", "nonsense"];
