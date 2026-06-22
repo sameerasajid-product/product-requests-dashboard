@@ -36,10 +36,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Logged in and sitting on an auth page -> send to the dashboard
+  // Logged in and sitting on an auth page -> send to the right dashboard
   if (user && isAuthPage) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
     const url = request.nextUrl.clone();
-    url.pathname = "/requests";
+    url.pathname = profile?.role === "admin" ? "/admin" : "/requests";
     return NextResponse.redirect(url);
   }
 

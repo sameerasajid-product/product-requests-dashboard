@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   ProductRequest,
@@ -53,7 +53,7 @@ function StatsBar({ requests }: { requests: ProductRequest[] }) {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-8">
-      <div className="bg-admin-surface border border-admin-border rounded-xl px-4 py-3">
+      <div className="bg-admin-surface border border-admin-border rounded-xl px-4 py-3 min-h-[84px] flex flex-col justify-center">
         <p className="text-2xl font-semibold text-admin-ink ticket-id">{requests.length}</p>
         <p className="text-xs text-admin-ink-muted mt-0.5">Total requests</p>
       </div>
@@ -62,7 +62,7 @@ function StatsBar({ requests }: { requests: ProductRequest[] }) {
         return (
           <div
             key={status}
-            className={`bg-admin-surface border ${colors.border} rounded-xl px-4 py-3`}
+            className={`bg-admin-surface border ${colors.border} rounded-xl px-4 py-3 min-h-[84px] flex flex-col justify-center`}
           >
             <p className={`text-2xl font-semibold ticket-id ${colors.text}`}>
               {counts.byStatus[status]}
@@ -135,6 +135,14 @@ function AdminCard({
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [ratingSaving, setRatingSaving] = useState(false);
+  const [popupRating, setPopupRating] = useState<RequestRating | null>(null);
+  const popupTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (popupTimeout.current) clearTimeout(popupTimeout.current);
+    };
+  }, []);
 
   async function callUpdate(payload: Record<string, unknown>) {
     await fetch("/api/update-status", {
@@ -172,6 +180,10 @@ function AdminCard({
   }
 
   async function handleRate(rating: RequestRating) {
+    if (popupTimeout.current) clearTimeout(popupTimeout.current);
+    setPopupRating(rating);
+    popupTimeout.current = setTimeout(() => setPopupRating(null), 1200);
+
     setRatingSaving(true);
     await callUpdate({ rating });
     setRatingSaving(false);
@@ -224,26 +236,41 @@ function AdminCard({
       )}
 
       {/* Rate the idea — admin-only, original emoji reactions */}
-      <div className="flex items-center gap-1 mb-3">
-        {RATING_ORDER.map((r) => (
-          <button
-            key={r}
-            onClick={() => handleRate(r)}
-            disabled={ratingSaving}
-            title={RATING_CONFIG[r].caption}
-            className={`text-sm w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
-              request.rating === r ? RATING_CONFIG[r].bg : "hover:bg-black/5"
-            }`}
-          >
-            {RATING_CONFIG[r].emoji}
-          </button>
-        ))}
+      <div className="mb-3">
+        <div className="flex items-center gap-1.5">
+          {RATING_ORDER.map((r) => (
+            <button
+              key={r}
+              onClick={() => handleRate(r)}
+              disabled={ratingSaving}
+              title={RATING_CONFIG[r].caption}
+              className={`text-sm w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-md transition-colors ${
+                request.rating === r ? RATING_CONFIG[r].bg : "hover:bg-black/5"
+              }`}
+            >
+              {RATING_CONFIG[r].emoji}
+            </button>
+          ))}
+        </div>
         {request.rating && (
-          <span className={`text-[10px] ml-1 ${RATING_CONFIG[request.rating].text}`}>
+          <span className={`block text-[10px] mt-1 ${RATING_CONFIG[request.rating].text}`}>
             {RATING_CONFIG[request.rating].caption}
           </span>
         )}
       </div>
+
+      {popupRating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/10 pointer-events-none">
+          <div
+            className={`reaction-pop bg-white shadow-2xl rounded-3xl px-12 py-10 flex flex-col items-center gap-3 border-2 ${RATING_CONFIG[popupRating].border}`}
+          >
+            <span className="text-7xl leading-none">{RATING_CONFIG[popupRating].emoji}</span>
+            <span className={`text-lg font-semibold ${RATING_CONFIG[popupRating].text}`}>
+              {RATING_CONFIG[popupRating].caption}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Approve / Reject gate — only shown while a request hasn't been decided on yet */}
       {isPending && !rejecting && (

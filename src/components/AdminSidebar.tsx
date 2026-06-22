@@ -41,13 +41,6 @@ export default function AdminSidebar({
           <span className="w-1.5 h-1.5 rounded-full bg-accent" />
           Board
         </div>
-        <a
-          href="/requests"
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-admin-ink-muted text-sm hover:bg-black/[0.04] hover:text-admin-ink transition-colors"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-admin-ink-muted" />
-          My Requests
-        </a>
       </nav>
 
       <div className="px-3 pb-4 pt-3 border-t border-admin-border">

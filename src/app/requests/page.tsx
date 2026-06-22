@@ -17,12 +17,14 @@ export default async function RequestsPage() {
     .eq("id", user.id)
     .single();
 
+  // This view is for requesters only — admins live entirely in /admin
+  if (profile?.role === "admin") {
+    redirect("/admin");
+  }
+
   return (
     <div>
-      <Navbar
-        isAdmin={profile?.role === "admin"}
-        fullName={profile?.full_name ?? null}
-      />
+      <Navbar fullName={profile?.full_name ?? null} />
       <RequestsClient userId={user.id} department={profile?.department ?? null} />
     </div>
   );

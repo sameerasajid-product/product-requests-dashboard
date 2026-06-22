@@ -9,5 +9,11 @@ export default async function Home() {
     redirect("/login");
   }
 
-  redirect("/requests");
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  redirect(profile?.role === "admin" ? "/admin" : "/requests");
 }
