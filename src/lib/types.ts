@@ -22,7 +22,6 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   rejected: "Rejected",
 };
 
-// Order columns appear in on the admin board
 export const STATUS_ORDER: RequestStatus[] = [
   "submitted",
   "in_review",
@@ -65,7 +64,6 @@ export const URGENCY_LABELS: Record<RequestUrgency, string> = {
   high: "High",
 };
 
-// Admin-only "rate the idea" reaction — original emoji-based reactions, not borrowed meme images.
 export const RATING_CONFIG: Record<
   RequestRating,
   { emoji: string; caption: string; text: string; bg: string; border: string }
@@ -79,7 +77,6 @@ export const RATING_CONFIG: Record<
 
 export const RATING_ORDER: RequestRating[] = ["excellent", "good", "meh", "weak", "nonsense"];
 
-// Admin-set delivery expectations, shown to the requester
 export const ETA_OPTIONS: string[] = [
   "Next 30 days",
   "Next 2 months",
@@ -123,6 +120,14 @@ export interface ProductRequest {
   assigned_to: string | null;
   created_at: string;
   updated_at: string;
+  // AI-generated PRD fields
+  prd_problem_statement: string | null;
+  prd_user_stories: string[] | null;
+  prd_acceptance_criteria: string[] | null;
+  prd_affected_teams: string[] | null;
+  prd_success_metrics: string | null;
+  prd_additional_notes: string | null;
+  chat_transcript: { role: string; content: string }[] | null;
   // Joined data (optional, populated by some queries)
   requester?: Profile;
 }

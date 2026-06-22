@@ -125,6 +125,7 @@ function AdminCard({
   onUpdated: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [prdOpen, setPrdOpen] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [nextStatus, setNextStatus] = useState<RequestStatus>(
@@ -183,7 +184,6 @@ function AdminCard({
     if (popupTimeout.current) clearTimeout(popupTimeout.current);
     setPopupRating(rating);
     popupTimeout.current = setTimeout(() => setPopupRating(null), 1200);
-
     setRatingSaving(true);
     await callUpdate({ rating });
     setRatingSaving(false);
@@ -192,6 +192,7 @@ function AdminCard({
   const isPending = request.status === "submitted";
   const isRejected = request.status === "rejected";
   const statusOptions = STATUS_ORDER.filter((s) => s !== "submitted");
+  const hasPRD = !!(request.prd_problem_statement || (request.prd_user_stories && request.prd_user_stories.length > 0));
 
   return (
     <div className="bg-admin-surface border border-admin-border rounded-xl p-4 hover:border-black/10 transition-colors overflow-hidden">
@@ -208,6 +209,11 @@ function AdminCard({
         >
           {URGENCY_LABELS[request.urgency]}
         </span>
+        {hasPRD && (
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent-soft text-accent">
+            ✦ PRD
+          </span>
+        )}
       </div>
 
       <h4 className="text-sm font-medium text-admin-ink mb-1">{request.title}</h4>
@@ -235,7 +241,61 @@ function AdminCard({
         <p className="text-xs text-admin-ink-muted mb-2">⏱ {request.eta_label}</p>
       )}
 
-      {/* Rate the idea — admin-only, original emoji reactions */}
+      {/* PRD collapsible section */}
+      {hasPRD && (
+        <div className="mb-3">
+          <button
+            onClick={() => setPrdOpen((v) => !v)}
+            className="text-xs font-medium text-accent flex items-center gap-1 hover:text-accent/80"
+          >
+            <span className={`transition-transform inline-block ${prdOpen ? "rotate-90" : ""}`}>▶</span>
+            {prdOpen ? "Hide PRD" : "View PRD"}
+          </button>
+          {prdOpen && (
+            <div className="mt-2 space-y-2 pl-3 border-l-2 border-accent/20">
+              {request.prd_problem_statement && (
+                <div>
+                  <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-0.5">Problem</p>
+                  <p className="text-xs text-admin-ink leading-relaxed">{request.prd_problem_statement}</p>
+                </div>
+              )}
+              {request.prd_user_stories && request.prd_user_stories.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-0.5">User Stories</p>
+                  {request.prd_user_stories.map((s, i) => (
+                    <p key={i} className="text-xs text-admin-ink leading-relaxed">→ {s}</p>
+                  ))}
+                </div>
+              )}
+              {request.prd_acceptance_criteria && request.prd_acceptance_criteria.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-0.5">Acceptance Criteria</p>
+                  {request.prd_acceptance_criteria.map((c, i) => (
+                    <p key={i} className="text-xs text-admin-ink leading-relaxed">✓ {c}</p>
+                  ))}
+                </div>
+              )}
+              {request.prd_success_metrics && (
+                <div>
+                  <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-0.5">Success Metrics</p>
+                  <p className="text-xs text-admin-ink leading-relaxed">{request.prd_success_metrics}</p>
+                </div>
+              )}
+              {request.prd_affected_teams && request.prd_affected_teams.length > 0 && (
+                <div className="flex gap-1 flex-wrap">
+                  {request.prd_affected_teams.map((team) => (
+                    <span key={team} className="text-[10px] px-1.5 py-0.5 bg-accent-soft text-accent rounded-full">
+                      {team}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Rate the idea */}
       <div className="mb-3">
         <div className="flex items-center gap-1 flex-wrap">
           {RATING_ORDER.map((r) => (
@@ -272,7 +332,6 @@ function AdminCard({
         </div>
       )}
 
-      {/* Approve / Reject gate — only shown while a request hasn't been decided on yet */}
       {isPending && !rejecting && (
         <div className="flex items-center gap-2">
           <button
@@ -319,7 +378,6 @@ function AdminCard({
         </div>
       )}
 
-      {/* Normal status management — once a request has been approved past the initial gate */}
       {!isPending && !isRejected && (
         !open ? (
           <button
@@ -362,7 +420,7 @@ function AdminCard({
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Note (optional, e.g. reason for delay)"
+              placeholder="Note (optional)"
               className="w-full text-xs px-2 py-1.5 rounded-lg border border-admin-border bg-admin-bg text-admin-ink placeholder:text-admin-ink-muted"
             />
             <div className="flex items-center gap-2">

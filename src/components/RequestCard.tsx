@@ -72,6 +72,12 @@ export default function RequestCard({
   attachments?: RequestAttachment[];
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [tab, setTab] = useState<"timeline" | "prd">("timeline");
+
+  const hasPRD = !!(
+    request.prd_problem_statement ||
+    (request.prd_user_stories && request.prd_user_stories.length > 0)
+  );
 
   return (
     <div className="bg-surface border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -84,6 +90,11 @@ export default function RequestCard({
             <span className="text-xs text-ink-muted">
               · {TYPE_LABELS[request.type]} · {URGENCY_LABELS[request.urgency]} urgency
             </span>
+            {hasPRD && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-accent-soft text-accent">
+                ✦ PRD
+              </span>
+            )}
           </div>
           <h3 className="text-base font-medium text-ink truncate">
             {request.title}
@@ -128,34 +139,149 @@ export default function RequestCard({
           onClick={() => setExpanded((v) => !v)}
           className="text-xs font-medium text-accent"
         >
-          {expanded ? "Hide timeline" : "View timeline"}
+          {expanded ? "Collapse ↑" : hasPRD ? "View PRD & timeline ↓" : "View timeline ↓"}
         </button>
       </div>
 
       {expanded && (
-        <div className="mt-4 pt-4 border-t border-border space-y-2.5">
-          {history.length === 0 ? (
-            <p className="text-xs text-ink-muted">No history yet.</p>
-          ) : (
-            history.map((h) => (
-              <div key={h.id} className="flex items-start gap-3 text-xs">
-                <span className="text-ink-muted ticket-id w-24 flex-shrink-0 pt-0.5">
-                  {formatDate(h.changed_at)}
-                </span>
-                <span className="text-ink">
-                  {h.old_status ? (
-                    <>
-                      {STATUS_LABELS[h.old_status]} → {STATUS_LABELS[h.new_status]}
-                    </>
-                  ) : (
-                    <>Request submitted</>
-                  )}
-                  {h.note && (
-                    <span className="block text-ink-muted mt-0.5">{h.note}</span>
-                  )}
-                </span>
-              </div>
-            ))
+        <div className="mt-4 pt-4 border-t border-border">
+          {/* Tabs */}
+          {hasPRD && (
+            <div className="flex gap-1 mb-4 bg-bg rounded-lg p-1 w-fit">
+              <button
+                onClick={() => setTab("timeline")}
+                className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
+                  tab === "timeline"
+                    ? "bg-surface text-ink shadow-sm"
+                    : "text-ink-muted hover:text-ink"
+                }`}
+              >
+                Timeline
+              </button>
+              <button
+                onClick={() => setTab("prd")}
+                className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 ${
+                  tab === "prd"
+                    ? "bg-surface text-ink shadow-sm"
+                    : "text-ink-muted hover:text-ink"
+                }`}
+              >
+                <span className="text-accent">✦</span> PRD
+              </button>
+            </div>
+          )}
+
+          {/* Timeline tab */}
+          {(!hasPRD || tab === "timeline") && (
+            <div className="space-y-2.5">
+              {history.length === 0 ? (
+                <p className="text-xs text-ink-muted">No history yet.</p>
+              ) : (
+                history.map((h) => (
+                  <div key={h.id} className="flex items-start gap-3 text-xs">
+                    <span className="text-ink-muted ticket-id w-24 flex-shrink-0 pt-0.5">
+                      {formatDate(h.changed_at)}
+                    </span>
+                    <span className="text-ink">
+                      {h.old_status ? (
+                        <>
+                          {STATUS_LABELS[h.old_status]} → {STATUS_LABELS[h.new_status]}
+                        </>
+                      ) : (
+                        <>Request submitted</>
+                      )}
+                      {h.note && (
+                        <span className="block text-ink-muted mt-0.5">{h.note}</span>
+                      )}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* PRD tab */}
+          {hasPRD && tab === "prd" && (
+            <div className="space-y-4 text-sm">
+              {request.prd_problem_statement && (
+                <div>
+                  <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1">
+                    Problem Statement
+                  </p>
+                  <p className="text-ink leading-relaxed">{request.prd_problem_statement}</p>
+                </div>
+              )}
+
+              {request.prd_user_stories && request.prd_user_stories.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">
+                    User Stories
+                  </p>
+                  <div className="space-y-1.5">
+                    {request.prd_user_stories.map((story, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-accent font-bold mt-0.5 flex-shrink-0">→</span>
+                        <span className="text-ink leading-relaxed">{story}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {request.prd_acceptance_criteria && request.prd_acceptance_criteria.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">
+                    Acceptance Criteria
+                  </p>
+                  <div className="space-y-1.5">
+                    {request.prd_acceptance_criteria.map((criterion, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-status-deployed font-bold mt-0.5 flex-shrink-0">✓</span>
+                        <span className="text-ink leading-relaxed">{criterion}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {request.prd_success_metrics && (
+                <div>
+                  <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1">
+                    Success Metrics
+                  </p>
+                  <p className="text-ink leading-relaxed">{request.prd_success_metrics}</p>
+                </div>
+              )}
+
+              {request.prd_affected_teams && request.prd_affected_teams.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1.5">
+                    Affected Teams
+                  </p>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {request.prd_affected_teams.map((team) => (
+                      <span
+                        key={team}
+                        className="text-xs px-2 py-0.5 bg-accent-soft text-accent rounded-full font-medium"
+                      >
+                        {team}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {request.prd_additional_notes && (
+                <div className="bg-bg rounded-lg px-4 py-3 border border-border">
+                  <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1">
+                    Additional Notes
+                  </p>
+                  <p className="text-sm text-ink-muted leading-relaxed">
+                    {request.prd_additional_notes}
+                  </p>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
