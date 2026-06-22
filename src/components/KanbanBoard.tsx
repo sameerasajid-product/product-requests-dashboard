@@ -194,7 +194,7 @@ function AdminCard({
   const statusOptions = STATUS_ORDER.filter((s) => s !== "submitted");
 
   return (
-    <div className="bg-admin-surface border border-admin-border rounded-xl p-4 hover:border-black/10 transition-colors">
+    <div className="bg-admin-surface border border-admin-border rounded-xl p-4 hover:border-black/10 transition-colors overflow-hidden">
       <div className="flex items-center gap-2 mb-1.5">
         <span className="ticket-id text-xs text-admin-ink-muted">
           PR-{String(request.ticket_number).padStart(4, "0")}
@@ -237,14 +237,14 @@ function AdminCard({
 
       {/* Rate the idea — admin-only, original emoji reactions */}
       <div className="mb-3">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 flex-wrap">
           {RATING_ORDER.map((r) => (
             <button
               key={r}
               onClick={() => handleRate(r)}
               disabled={ratingSaving}
               title={RATING_CONFIG[r].caption}
-              className={`text-sm w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-md transition-colors ${
+              className={`text-xs w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-md transition-colors ${
                 request.rating === r ? RATING_CONFIG[r].bg : "hover:bg-black/5"
               }`}
             >
