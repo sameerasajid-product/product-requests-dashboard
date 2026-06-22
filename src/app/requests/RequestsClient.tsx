@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ProductRequest, StatusHistoryEntry } from "@/lib/types";
+import { ProductRequest, StatusHistoryEntry, RequestAttachment } from "@/lib/types";
 import RequestForm from "@/components/RequestForm";
 import RequestCard from "@/components/RequestCard";
 
@@ -18,6 +18,9 @@ export default function RequestsClient({
   const [historyByRequest, setHistoryByRequest] = useState<
     Record<string, StatusHistoryEntry[]>
   >({});
+  const [attachmentsByRequest, setAttachmentsByRequest] = useState<
+    Record<string, RequestAttachment[]>
+  >({});
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -31,18 +34,35 @@ export default function RequestsClient({
     setRequests(reqs ?? []);
 
     if (reqs && reqs.length > 0) {
+      const requestIds = reqs.map((r) => r.id);
+
       const { data: history } = await supabase
         .from("status_history")
         .select("*")
-        .in("request_id", reqs.map((r) => r.id))
+        .in("request_id", requestIds)
         .order("changed_at", { ascending: true });
 
-      const grouped: Record<string, StatusHistoryEntry[]> = {};
+      const groupedHistory: Record<string, StatusHistoryEntry[]> = {};
       (history ?? []).forEach((h) => {
-        grouped[h.request_id] = grouped[h.request_id] ?? [];
-        grouped[h.request_id].push(h);
+        groupedHistory[h.request_id] = groupedHistory[h.request_id] ?? [];
+        groupedHistory[h.request_id].push(h);
       });
-      setHistoryByRequest(grouped);
+      setHistoryByRequest(groupedHistory);
+
+      const { data: attachments } = await supabase
+        .from("request_attachments")
+        .select("*")
+        .in("request_id", requestIds);
+
+      const groupedAttachments: Record<string, RequestAttachment[]> = {};
+      (attachments ?? []).forEach((a) => {
+        const { data: urlData } = supabase.storage
+          .from("request-attachments")
+          .getPublicUrl(a.file_path);
+        groupedAttachments[a.request_id] = groupedAttachments[a.request_id] ?? [];
+        groupedAttachments[a.request_id].push({ ...a, url: urlData.publicUrl });
+      });
+      setAttachmentsByRequest(groupedAttachments);
     }
 
     setLoading(false);
@@ -119,6 +139,7 @@ export default function RequestsClient({
               key={r.id}
               request={r}
               history={historyByRequest[r.id] ?? []}
+              attachments={attachmentsByRequest[r.id] ?? []}
             />
           ))}
         </div>

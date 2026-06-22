@@ -4,6 +4,8 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { RequestType, RequestUrgency } from "@/lib/types";
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
+
 export default function RequestForm({
   userId,
   department,
@@ -20,34 +22,84 @@ export default function RequestForm({
   const [description, setDescription] = useState("");
   const [type, setType] = useState<RequestType>("enhancement");
   const [urgency, setUrgency] = useState<RequestUrgency>("medium");
+  const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? []);
+    const tooBig = selected.find((f) => f.size > MAX_FILE_SIZE);
+    if (tooBig) {
+      setError(`"${tooBig.name}" is over 10MB — pick something smaller.`);
+      return;
+    }
+    setError(null);
+    setFiles((prev) => [...prev, ...selected]);
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const { error } = await supabase.from("requests").insert({
-      title,
-      description,
-      type,
-      urgency,
-      department,
-      requested_by: userId,
-    });
+    const { data: inserted, error: insertError } = await supabase
+      .from("requests")
+      .insert({
+        title,
+        description,
+        type,
+        urgency,
+        department,
+        requested_by: userId,
+      })
+      .select()
+      .single();
 
-    setLoading(false);
-
-    if (error) {
-      setError(error.message);
+    if (insertError || !inserted) {
+      setLoading(false);
+      setError(insertError?.message ?? "Something went wrong, try again.");
       return;
     }
 
+    // Upload any attached files now that we have a request id to attach them to
+    if (files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadStatus(`Uploading ${i + 1} of ${files.length}…`);
+
+        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+        const path = `${userId}/${inserted.id}/${Date.now()}-${safeName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("request-attachments")
+          .upload(path, file);
+
+        if (!uploadError) {
+          await supabase.from("request_attachments").insert({
+            request_id: inserted.id,
+            file_path: path,
+            file_name: file.name,
+            file_type: file.type || null,
+            file_size: file.size,
+          });
+        }
+        // If an individual file fails to upload, we just skip it silently —
+        // the request itself is already created either way.
+      }
+    }
+
+    setLoading(false);
+    setUploadStatus(null);
     setTitle("");
     setDescription("");
     setType("enhancement");
     setUrgency("medium");
+    setFiles([]);
     onCreated();
   }
 
@@ -96,7 +148,6 @@ export default function RequestForm({
           >
             <option value="new_feature">New Feature</option>
             <option value="enhancement">Enhancement</option>
-            <option value="bug">Bug</option>
           </select>
         </div>
         <div>
@@ -115,6 +166,41 @@ export default function RequestForm({
         </div>
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-ink mb-1.5">
+          Attachments (optional)
+        </label>
+        <input
+          type="file"
+          multiple
+          onChange={handleFileChange}
+          className="w-full text-sm text-ink-muted file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-bg file:text-ink file:text-sm file:font-medium hover:file:bg-border/60 file:cursor-pointer cursor-pointer border border-border rounded-lg px-3 py-1.5"
+        />
+        <p className="text-xs text-ink-muted mt-1">
+          Screenshots, mockups, documents — up to 10MB each.
+        </p>
+
+        {files.length > 0 && (
+          <div className="mt-2 space-y-1.5">
+            {files.map((file, i) => (
+              <div
+                key={`${file.name}-${i}`}
+                className="flex items-center justify-between bg-bg border border-border rounded-lg px-3 py-1.5"
+              >
+                <span className="text-xs text-ink truncate">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  className="text-xs text-ink-muted hover:text-status-delayed flex-shrink-0 ml-2"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {error && (
         <p className="text-sm text-status-delayed bg-status-delayed-bg px-3 py-2 rounded-lg">
           {error}
@@ -127,7 +213,7 @@ export default function RequestForm({
           disabled={loading}
           className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-accent/90 shadow-sm hover:shadow transition-all disabled:opacity-60"
         >
-          {loading ? "Submitting…" : "Submit request"}
+          {loading ? (uploadStatus ?? "Submitting…") : "Submit request"}
         </button>
         <button
           type="button"

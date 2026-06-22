@@ -15,19 +15,27 @@ create type request_status as enum (
   'discussion_with_tech',
   'in_sprint',
   'deployed',
-  'delayed_next_sprint'
+  'delayed_next_sprint',
+  'rejected'
 );
 
 create type request_type as enum (
   'new_feature',
-  'enhancement',
-  'bug'
+  'enhancement'
 );
 
 create type request_urgency as enum (
   'low',
   'medium',
   'high'
+);
+
+create type request_rating as enum (
+  'excellent',
+  'good',
+  'meh',
+  'weak',
+  'nonsense'
 );
 
 create type user_role as enum (
@@ -80,6 +88,8 @@ create table requests (
   department text,
   status request_status not null default 'submitted',
   sprint_name text,                            -- e.g. "Sprint 24" once it's scheduled
+  eta_label text,                              -- admin-set delivery expectation, e.g. "Next 30 days"
+  rating request_rating,                       -- admin-only internal "rate the idea" reaction
   requested_by uuid not null references profiles(id) on delete cascade,
   assigned_to uuid references profiles(id),     -- which product team member owns it
   created_at timestamptz not null default now(),
@@ -138,12 +148,30 @@ create trigger requests_log_status_change
   after insert or update on requests
   for each row execute function log_status_change();
 
+-- ----------------------------
+-- ATTACHMENTS
+-- Metadata for files/images uploaded with a request. Actual file bytes live
+-- in Supabase Storage (bucket: request-attachments), this table just tracks them.
+-- ----------------------------
+create table request_attachments (
+  id uuid primary key default gen_random_uuid(),
+  request_id uuid not null references requests(id) on delete cascade,
+  file_path text not null,        -- path inside the storage bucket
+  file_name text not null,        -- original filename, for display
+  file_type text,                 -- mime type, e.g. image/png, application/pdf
+  file_size integer,               -- bytes
+  uploaded_at timestamptz not null default now()
+);
+
+create index request_attachments_request_id_idx on request_attachments(request_id);
+
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
 alter table profiles enable row level security;
 alter table requests enable row level security;
 alter table status_history enable row level security;
+alter table request_attachments enable row level security;
 
 -- Helper: is the current user a product-team admin?
 create or replace function is_admin()
@@ -198,12 +226,54 @@ create policy "Admins can view all history"
   on status_history for select
   using (is_admin());
 
+-- ATTACHMENTS policies
+create policy "Users can view attachments on their own requests"
+  on request_attachments for select
+  using (
+    exists (
+      select 1 from requests
+      where requests.id = request_attachments.request_id
+      and requests.requested_by = auth.uid()
+    )
+  );
+
+create policy "Admins can view all attachments"
+  on request_attachments for select
+  using (is_admin());
+
+create policy "Users can add attachments to their own requests"
+  on request_attachments for insert
+  with check (
+    exists (
+      select 1 from requests
+      where requests.id = request_attachments.request_id
+      and requests.requested_by = auth.uid()
+    )
+  );
+
+-- ============================================================
+-- STORAGE (file/image attachments)
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('request-attachments', 'request-attachments', true)
+on conflict (id) do nothing;
+
+create policy "Authenticated users can upload attachments"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'request-attachments');
+
+create policy "Anyone can view attachment files"
+  on storage.objects for select
+  using (bucket_id = 'request-attachments');
+
 -- ============================================================
 -- REALTIME
 -- Enable realtime so the dashboard updates live without a refresh
 -- ============================================================
 alter publication supabase_realtime add table requests;
 alter publication supabase_realtime add table status_history;
+alter publication supabase_realtime add table request_attachments;
 
 -- ============================================================
 -- MAKE SOMEONE A PRODUCT-TEAM ADMIN (run manually, per person)

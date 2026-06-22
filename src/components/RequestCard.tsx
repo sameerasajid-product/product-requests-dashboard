@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   ProductRequest,
   StatusHistoryEntry,
+  RequestAttachment,
   STATUS_LABELS,
   TYPE_LABELS,
   URGENCY_LABELS,
@@ -18,12 +19,56 @@ function formatDate(iso: string) {
   });
 }
 
+function formatBytes(bytes: number | null) {
+  if (!bytes) return "";
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function AttachmentChip({ attachment }: { attachment: RequestAttachment }) {
+  const isImage = attachment.file_type?.startsWith("image/");
+
+  if (isImage && attachment.url) {
+    return (
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block w-14 h-14 rounded-lg overflow-hidden border border-border flex-shrink-0"
+        title={attachment.file_name}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={attachment.url}
+          alt={attachment.file_name}
+          className="w-full h-full object-cover"
+        />
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={attachment.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1.5 bg-bg border border-border rounded-lg px-2.5 py-1.5 text-xs text-ink hover:border-accent transition-colors flex-shrink-0"
+    >
+      <span>📄</span>
+      <span className="truncate max-w-[120px]">{attachment.file_name}</span>
+      <span className="text-ink-muted">{formatBytes(attachment.file_size)}</span>
+    </a>
+  );
+}
+
 export default function RequestCard({
   request,
   history,
+  attachments = [],
 }: {
   request: ProductRequest;
   history: StatusHistoryEntry[];
+  attachments?: RequestAttachment[];
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -50,6 +95,20 @@ export default function RequestCard({
         {request.description}
       </p>
 
+      {attachments.length > 0 && (
+        <div className="flex items-center gap-2 mt-3 overflow-x-auto">
+          {attachments.map((a) => (
+            <AttachmentChip key={a.id} attachment={a} />
+          ))}
+        </div>
+      )}
+
+      {request.eta_label && (
+        <p className="text-xs text-accent mt-3">
+          Expected: {request.eta_label}
+        </p>
+      )}
+
       <div className="flex items-center justify-between mt-3">
         <span className="text-xs text-ink-muted">
           Submitted {formatDate(request.created_at)}
@@ -69,8 +128,8 @@ export default function RequestCard({
             <p className="text-xs text-ink-muted">No history yet.</p>
           ) : (
             history.map((h) => (
-              <div key={h.id} className="flex items-center gap-3 text-xs">
-                <span className="text-ink-muted ticket-id w-24 flex-shrink-0">
+              <div key={h.id} className="flex items-start gap-3 text-xs">
+                <span className="text-ink-muted ticket-id w-24 flex-shrink-0 pt-0.5">
                   {formatDate(h.changed_at)}
                 </span>
                 <span className="text-ink">
@@ -80,6 +139,9 @@ export default function RequestCard({
                     </>
                   ) : (
                     <>Request submitted</>
+                  )}
+                  {h.note && (
+                    <span className="block text-ink-muted mt-0.5">{h.note}</span>
                   )}
                 </span>
               </div>

@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerSupabase, createAdminClient } from "@/lib/supabase/server";
 import { Resend } from "resend";
-import { STATUS_LABELS, RequestStatus } from "@/lib/types";
+import { RequestStatus, RequestRating } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { requestId, newStatus, sprintName, note } = body as {
+  const { requestId, newStatus, sprintName, etaLabel, rating, note } = body as {
     requestId: string;
-    newStatus: RequestStatus;
+    newStatus?: RequestStatus;
     sprintName?: string;
+    etaLabel?: string;
+    rating?: RequestRating;
     note?: string;
   };
 
-  if (!requestId || !newStatus) {
-    return NextResponse.json(
-      { error: "requestId and newStatus are required" },
-      { status: 400 }
-    );
+  if (!requestId) {
+    return NextResponse.json({ error: "requestId is required" }, { status: 400 });
   }
 
   // Confirm the caller is a signed-in admin before doing anything privileged
@@ -49,21 +48,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Request not found" }, { status: 404 });
   }
 
+  // Build the update payload from whichever fields were actually provided
+  const updatePayload: Record<string, unknown> = { assigned_to: user.id };
+  if (newStatus) updatePayload.status = newStatus;
+  if (sprintName !== undefined) updatePayload.sprint_name = sprintName;
+  if (etaLabel !== undefined) updatePayload.eta_label = etaLabel;
+  if (rating !== undefined) updatePayload.rating = rating;
+
   const { error: updateError } = await admin
     .from("requests")
-    .update({
-      status: newStatus,
-      sprint_name: sprintName ?? existing.sprint_name,
-      assigned_to: user.id,
-    })
+    .update(updatePayload)
     .eq("id", requestId);
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  // Attach an optional note to the history row the DB trigger just created
-  if (note) {
+  // Attach an optional note (e.g. rejection reason) to the history row the DB trigger just created
+  if (note && newStatus) {
     await admin
       .from("status_history")
       .update({ note })

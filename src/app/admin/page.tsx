@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import Navbar from "@/components/Navbar";
+import AdminSidebar from "@/components/AdminSidebar";
 import KanbanBoard from "@/components/KanbanBoard";
 
 export default async function AdminPage() {
@@ -22,9 +22,11 @@ export default async function AdminPage() {
   }
 
   return (
-    <div>
-      <Navbar isAdmin={true} fullName={profile?.full_name ?? null} />
-      <KanbanBoard />
+    <div className="flex min-h-screen bg-admin-bg">
+      <AdminSidebar fullName={profile?.full_name ?? null} />
+      <main className="flex-1 min-w-0">
+        <KanbanBoard />
+      </main>
     </div>
   );
 }
