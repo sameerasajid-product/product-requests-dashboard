@@ -7,129 +7,6 @@ interface Message {
   content: string;
 }
 
-interface PRD {
-  title: string;
-  type: "new_feature" | "enhancement";
-  urgency: "low" | "medium" | "high";
-  problem_statement: string;
-  user_stories: string[];
-  acceptance_criteria: string[];
-  affected_teams: string[];
-  success_metrics: string;
-  additional_notes: string;
-}
-
-const URGENCY_COLORS = {
-  low: "text-slate-600 bg-slate-100",
-  medium: "text-amber-700 bg-amber-50",
-  high: "text-red-700 bg-red-50",
-};
-
-const TYPE_LABELS = {
-  new_feature: "New Feature",
-  enhancement: "Enhancement",
-};
-
-function PRDPreview({ prd }: { prd: PRD }) {
-  return (
-    <div className="bg-white border border-border rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="px-5 py-4 border-b border-border bg-accent-soft">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-mono uppercase tracking-wide text-accent font-semibold">
-            AI-Generated PRD
-          </span>
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${URGENCY_COLORS[prd.urgency]}`}>
-            {prd.urgency} urgency
-          </span>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-            {TYPE_LABELS[prd.type]}
-          </span>
-        </div>
-        <h3 className="text-base font-semibold text-ink">{prd.title}</h3>
-      </div>
-
-      <div className="px-5 py-4 space-y-4 text-sm">
-        {/* Problem */}
-        <div>
-          <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1">
-            Problem Statement
-          </p>
-          <p className="text-ink leading-relaxed">{prd.problem_statement}</p>
-        </div>
-
-        {/* User Stories */}
-        <div>
-          <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">
-            User Stories
-          </p>
-          <div className="space-y-1.5">
-            {prd.user_stories.map((story, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <span className="text-accent font-bold mt-0.5 flex-shrink-0">→</span>
-                <span className="text-ink leading-relaxed">{story}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Acceptance Criteria */}
-        <div>
-          <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">
-            Acceptance Criteria
-          </p>
-          <div className="space-y-1.5">
-            {prd.acceptance_criteria.map((criterion, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <span className="text-status-deployed font-bold mt-0.5 flex-shrink-0">✓</span>
-                <span className="text-ink leading-relaxed">{criterion}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Success Metrics */}
-        <div>
-          <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1">
-            Success Metrics
-          </p>
-          <p className="text-ink leading-relaxed">{prd.success_metrics}</p>
-        </div>
-
-        {/* Affected Teams + Notes */}
-        <div className="flex gap-4 flex-wrap">
-          {prd.affected_teams.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1.5">
-                Affected Teams
-              </p>
-              <div className="flex gap-1.5 flex-wrap">
-                {prd.affected_teams.map((team) => (
-                  <span
-                    key={team}
-                    className="text-xs px-2 py-0.5 bg-accent-soft text-accent rounded-full font-medium"
-                  >
-                    {team}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {prd.additional_notes && (
-          <div className="bg-bg rounded-lg px-4 py-3 border border-border">
-            <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1">
-              Additional Notes
-            </p>
-            <p className="text-sm text-ink-muted leading-relaxed">{prd.additional_notes}</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function AIChatRequest({
   userId,
   department,
@@ -144,54 +21,47 @@ export default function AIChatRequest({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
-  const [prd, setPrd] = useState<PRD | null>(null);
-  const [prdLoading, setPrdLoading] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, prd, prdLoading]);
+  }, [messages, summary, summaryLoading, submitting]);
 
   async function startChat() {
     setStarted(true);
     setChatLoading(true);
 
+    const firstUserMsg: Message = { role: "user", content: "Hi, I'd like to submit a product request." };
     const response = await fetch("/api/ai-chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "chat",
-        messages: [
-          {
-            role: "user",
-            content: "Hi, I'd like to submit a product request.",
-          },
-        ],
-      }),
+      body: JSON.stringify({ mode: "chat", messages: [firstUserMsg] }),
     });
 
     const data = await response.json();
-    const reply = data.reply ?? "Hi! Tell me what's on your mind — what problem or missing feature would you like to flag for the product team?";
+    const reply = data.reply ?? "Hi! What problem or missing feature would you like to flag for the product team?";
 
-    setMessages([
-      { role: "user", content: "Hi, I'd like to submit a product request." },
-      { role: "assistant", content: reply },
-    ]);
+    setMessages([firstUserMsg, { role: "assistant", content: reply }]);
     setChatLoading(false);
     setTimeout(() => inputRef.current?.focus(), 100);
   }
 
-  async function sendMessage() {
-    if (!input.trim() || chatLoading) return;
+  async function sendMessage(customInput?: string) {
+    const text = (customInput ?? input).trim();
+    if (!text || chatLoading) return;
 
-    const userMsg: Message = { role: "user", content: input.trim() };
+    const userMsg: Message = { role: "user", content: text };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput("");
+    setSummary(null);
     setChatLoading(true);
     setError(null);
 
@@ -204,14 +74,12 @@ export default function AIChatRequest({
 
       const data = await response.json();
       const reply: string = data.reply ?? "Sorry, something went wrong. Try again?";
-
       const assistantMsg: Message = { role: "assistant", content: reply };
       const finalMessages = [...updatedMessages, assistantMsg];
       setMessages(finalMessages);
 
-      // Check if AI has signalled it's ready to generate the PRD
       if (reply.includes("I have everything I need to write this up")) {
-        setTimeout(() => generatePRD(finalMessages), 600);
+        setTimeout(() => generateSummary(finalMessages), 600);
       }
     } catch {
       setError("Something went wrong. Please try again.");
@@ -220,46 +88,63 @@ export default function AIChatRequest({
     }
   }
 
-  async function generatePRD(msgs: Message[]) {
-    setPrdLoading(true);
+  async function generateSummary(msgs: Message[]) {
+    setSummaryLoading(true);
     setError(null);
 
     try {
       const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "generate_prd", messages: msgs }),
+        body: JSON.stringify({ mode: "generate_summary", messages: msgs }),
       });
 
       const data = await response.json();
-      if (data.prd) {
-        setPrd(data.prd);
+      if (data.summary) {
+        setSummary(data.summary);
       } else {
-        setError("Couldn't generate PRD. You can still regenerate below.");
+        setError("Couldn't generate summary. Please try again.");
       }
     } catch {
-      setError("Failed to generate PRD. Please try regenerating.");
+      setError("Failed to generate summary. Please try again.");
     } finally {
-      setPrdLoading(false);
+      setSummaryLoading(false);
     }
   }
 
-  async function handleSubmit() {
-    if (!prd) return;
+  async function handleConfirm() {
+    setConfirmed(true);
     setSubmitting(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/submit-request", {
+      // Generate PRD silently in background
+      const prdResponse = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prd, chatTranscript: messages, userId, department }),
+        body: JSON.stringify({ mode: "generate_prd", messages }),
       });
 
-      const data = await response.json();
-      if (data.error) {
-        setError(data.error);
+      const prdData = await prdResponse.json();
+      if (!prdData.prd) {
+        setError("Failed to process request. Please try again.");
         setSubmitting(false);
+        setConfirmed(false);
+        return;
+      }
+
+      // Submit to Supabase
+      const submitResponse = await fetch("/api/submit-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prd: prdData.prd, chatTranscript: messages, userId, department }),
+      });
+
+      const submitData = await submitResponse.json();
+      if (submitData.error) {
+        setError(submitData.error);
+        setSubmitting(false);
+        setConfirmed(false);
         return;
       }
 
@@ -267,14 +152,14 @@ export default function AIChatRequest({
     } catch {
       setError("Failed to submit. Please try again.");
       setSubmitting(false);
+      setConfirmed(false);
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+  function handleAddMore() {
+    setSummary(null);
+    setConfirmed(false);
+    setTimeout(() => inputRef.current?.focus(), 100);
   }
 
   // ─── Pre-start screen ───────────────────────────────────────────────────────
@@ -288,16 +173,16 @@ export default function AIChatRequest({
           <div>
             <p className="text-sm font-semibold text-ink">AI Product Request</p>
             <p className="text-xs text-ink-muted">
-              Chat with AI to describe your request — it will write the PRD for you
+              Chat with AI to describe your request — it handles the rest
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-5">
           {[
-            { icon: "💬", label: "Natural conversation", desc: "Just describe what you need, no forms" },
-            { icon: "📋", label: "Auto PRD", desc: "AI writes a full PRD from the chat" },
-            { icon: "🚀", label: "Instant submission", desc: "Review and submit in one click" },
+            { icon: "💬", label: "Just talk", desc: "Describe what you need naturally, no forms" },
+            { icon: "✅", label: "Review & confirm", desc: "AI summarises what it understood" },
+            { icon: "🚀", label: "Submitted", desc: "Product team gets a full PRD automatically" },
           ].map((item) => (
             <div key={item.label} className="bg-bg rounded-lg p-3 border border-border">
               <span className="text-xl mb-1.5 block">{item.icon}</span>
@@ -325,44 +210,48 @@ export default function AIChatRequest({
     );
   }
 
-  // ─── Chat + PRD screen ──────────────────────────────────────────────────────
+  // ─── Chat screen ────────────────────────────────────────────────────────────
   return (
     <div className="bg-surface border border-border rounded-xl shadow-sm overflow-hidden">
-      {/* Chat header */}
+      {/* Header */}
       <div className="px-5 py-3 border-b border-border flex items-center justify-between bg-bg">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-accent-soft flex items-center justify-center">
             <span className="text-xs">✦</span>
           </div>
           <span className="text-xs font-semibold text-ink">AI Assistant</span>
-          {!prd && !prdLoading && (
+          {!summary && !summaryLoading && !confirmed && (
             <span className="text-[10px] text-ink-muted bg-border px-1.5 py-0.5 rounded-full">
               {messages.filter((m) => m.role === "user").length} / ~6 questions
             </span>
           )}
-          {prdLoading && (
+          {summaryLoading && (
             <span className="text-[10px] text-accent bg-accent-soft px-2 py-0.5 rounded-full animate-pulse">
-              Writing PRD…
+              Summarising…
             </span>
           )}
-          {prd && (
+          {summary && !confirmed && (
             <span className="text-[10px] text-status-deployed bg-status-deployed-bg px-2 py-0.5 rounded-full">
-              PRD ready ✓
+              Ready to confirm ✓
+            </span>
+          )}
+          {confirmed && (
+            <span className="text-[10px] text-accent bg-accent-soft px-2 py-0.5 rounded-full animate-pulse">
+              Submitting…
             </span>
           )}
         </div>
-        <button onClick={onCancel} className="text-xs text-ink-muted hover:text-ink">
-          Cancel
-        </button>
+        {!confirmed && (
+          <button onClick={onCancel} className="text-xs text-ink-muted hover:text-ink">
+            Cancel
+          </button>
+        )}
       </div>
 
       {/* Messages */}
       <div className="px-5 py-4 space-y-3 max-h-80 overflow-y-auto">
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
+          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             {msg.role === "assistant" && (
               <div className="w-6 h-6 rounded-full bg-accent-soft flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
                 <span className="text-[10px]">✦</span>
@@ -396,15 +285,58 @@ export default function AIChatRequest({
           </div>
         )}
 
-        {/* PRD loading */}
-        {prdLoading && (
+        {/* Summary loading */}
+        {summaryLoading && (
           <div className="flex justify-start">
             <div className="w-6 h-6 rounded-full bg-accent-soft flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
               <span className="text-[10px]">✦</span>
             </div>
             <div className="bg-accent-soft border border-accent/20 rounded-2xl rounded-bl-sm px-4 py-3">
               <p className="text-xs text-accent font-medium animate-pulse">
-                Writing your PRD — give me a moment…
+                Let me summarise what I understood…
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Summary confirmation card */}
+        {summary && !confirmed && (
+          <div className="flex justify-start">
+            <div className="w-6 h-6 rounded-full bg-accent-soft flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
+              <span className="text-[10px]">✦</span>
+            </div>
+            <div className="max-w-[85%] bg-bg border border-border rounded-2xl rounded-bl-sm px-4 py-3 space-y-3">
+              <p className="text-sm text-ink leading-relaxed">{summary}</p>
+              <div className="pt-2 border-t border-border">
+                <p className="text-xs text-ink-muted mb-2">Does this capture your request correctly?</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleConfirm}
+                    className="bg-accent text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-accent/90 transition-all"
+                  >
+                    ✓ Yes, submit this
+                  </button>
+                  <button
+                    onClick={handleAddMore}
+                    className="bg-bg border border-border text-xs font-medium px-4 py-2 rounded-lg text-ink hover:border-accent transition-all"
+                  >
+                    Add more detail
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Submitting state */}
+        {confirmed && (
+          <div className="flex justify-start">
+            <div className="w-6 h-6 rounded-full bg-accent-soft flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">
+              <span className="text-[10px]">✦</span>
+            </div>
+            <div className="bg-accent-soft border border-accent/20 rounded-2xl rounded-bl-sm px-4 py-3">
+              <p className="text-xs text-accent font-medium animate-pulse">
+                Got it — submitting your request now…
               </p>
             </div>
           </div>
@@ -413,15 +345,20 @@ export default function AIChatRequest({
         <div ref={bottomRef} />
       </div>
 
-      {/* Input area — hidden once PRD is generated */}
-      {!prd && !prdLoading && (
+      {/* Input — hidden once summary shown */}
+      {!summary && !summaryLoading && !confirmed && (
         <div className="px-4 py-3 border-t border-border bg-bg">
           <div className="flex gap-2 items-end">
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
               disabled={chatLoading}
               rows={1}
               placeholder="Type your answer… (Enter to send)"
@@ -434,7 +371,7 @@ export default function AIChatRequest({
               }}
             />
             <button
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={chatLoading || !input.trim()}
               className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent/90 disabled:opacity-50 transition-all flex-shrink-0 h-10"
             >
@@ -444,47 +381,11 @@ export default function AIChatRequest({
         </div>
       )}
 
-      {/* PRD Preview + Submit */}
-      {prd && (
-        <div className="px-5 py-4 border-t border-border space-y-4">
-          <PRDPreview prd={prd} />
-
-          {error && (
-            <p className="text-sm text-status-delayed bg-status-delayed-bg px-3 py-2 rounded-lg">
-              {error}
-            </p>
-          )}
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="bg-accent text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-accent/90 shadow-sm hover:shadow transition-all disabled:opacity-60"
-            >
-              {submitting ? "Submitting…" : "Submit this request →"}
-            </button>
-            <button
-              onClick={() => {
-                setPrd(null);
-                generatePRD(messages);
-              }}
-              disabled={prdLoading || submitting}
-              className="text-sm font-medium text-ink-muted hover:text-ink px-4 py-2.5 disabled:opacity-50"
-            >
-              Regenerate PRD
-            </button>
-            <button
-              onClick={() => {
-                setPrd(null);
-                setMessages([]);
-                setStarted(false);
-              }}
-              disabled={submitting}
-              className="text-sm font-medium text-ink-muted hover:text-ink px-4 py-2.5 disabled:opacity-50"
-            >
-              Start over
-            </button>
-          </div>
+      {error && (
+        <div className="px-5 py-3 border-t border-border">
+          <p className="text-sm text-status-delayed bg-status-delayed-bg px-3 py-2 rounded-lg">
+            {error}
+          </p>
         </div>
       )}
     </div>

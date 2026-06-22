@@ -24,6 +24,16 @@ Rules:
 - If the user is vague, gently probe deeper before moving on
 - You may ask a follow-up to clarify an answer before moving to the next topic`;
 
+const SUMMARY_SYSTEM_PROMPT = `You are a Product Requirements assistant at Swich. Based on a conversation, write a SHORT plain-English summary of what the user is requesting.
+
+Rules:
+- Write in simple, friendly language — no technical jargon, no PRD format
+- Maximum 4-5 sentences
+- Structure it as: what the problem is, what they want built, who it helps, and what success looks like
+- Start with "Here's what I understood:" 
+- Do NOT include user stories, acceptance criteria, or any structured format
+- This is shown to the requester to confirm you understood them correctly`;
+
 const PRD_SYSTEM_PROMPT = `You are a senior product manager at Swich, a Pakistani fintech payment gateway. Based on a conversation transcript, generate a structured PRD as a JSON object.
 
 Return ONLY valid JSON, no markdown, no explanation. Use this exact schema:
@@ -45,15 +55,35 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { messages, mode } = body as {
     messages: { role: "user" | "assistant"; content: string }[];
-    mode: "chat" | "generate_prd";
+    mode: "chat" | "generate_summary" | "generate_prd";
   };
 
   if (!messages || messages.length === 0) {
     return NextResponse.json({ error: "messages required" }, { status: 400 });
   }
 
+  if (mode === "generate_summary") {
+    const transcript = messages
+      .map((m) => `${m.role === "user" ? "Team member" : "Assistant"}: ${m.content}`)
+      .join("\n\n");
+
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 300,
+      system: SUMMARY_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Summarise this request in plain English:\n\n${transcript}`,
+        },
+      ],
+    });
+
+    const summary = response.content[0].type === "text" ? response.content[0].text : "";
+    return NextResponse.json({ summary });
+  }
+
   if (mode === "generate_prd") {
-    // Build a transcript for PRD generation
     const transcript = messages
       .map((m) => `${m.role === "user" ? "Team member" : "Assistant"}: ${m.content}`)
       .join("\n\n");

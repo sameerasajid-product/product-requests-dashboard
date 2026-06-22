@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ProductRequest, StatusHistoryEntry, RequestAttachment } from "@/lib/types";
-import RequestForm from "@/components/RequestForm";
+import AIChatRequest from "@/components/AIChatRequest";
 import RequestCard from "@/components/RequestCard";
 
 export default function RequestsClient({
@@ -71,7 +71,6 @@ export default function RequestsClient({
   useEffect(() => {
     loadRequests();
 
-    // Live updates: re-fetch whenever one of this user's requests changes status
     const channel = supabase
       .channel("my-requests-changes")
       .on(
@@ -103,16 +102,17 @@ export default function RequestsClient({
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-accent/90 shadow-sm hover:shadow transition-all"
+            className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-accent/90 shadow-sm hover:shadow transition-all flex items-center gap-1.5"
           >
-            + New request
+            <span className="text-base leading-none">✦</span>
+            New request
           </button>
         )}
       </div>
 
       {showForm && (
         <div className="mb-6">
-          <RequestForm
+          <AIChatRequest
             userId={userId}
             department={department}
             onCreated={() => {
@@ -128,8 +128,10 @@ export default function RequestsClient({
         <p className="text-sm text-ink-muted">Loading…</p>
       ) : requests.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-border rounded-lg">
+          <p className="text-2xl mb-2">✦</p>
+          <p className="text-sm font-medium text-ink mb-1">No requests yet</p>
           <p className="text-sm text-ink-muted">
-            No requests yet. Submit one above to get the ball rolling.
+            Hit &ldquo;New request&rdquo; and chat with the AI to submit your first one.
           </p>
         </div>
       ) : (

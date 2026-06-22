@@ -17,7 +17,6 @@ export default async function RequestsPage() {
     .eq("id", user.id)
     .single();
 
-  // This view is for requesters only — admins live entirely in /admin
   if (profile?.role === "admin") {
     redirect("/admin");
   }

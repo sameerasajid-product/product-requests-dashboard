@@ -1,8 +1,9 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-export function createClient() {
-  const cookieStore = cookies();
+export async function createClient() {
+  const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,14 +17,14 @@ export function createClient() {
           try {
             cookieStore.set({ name, value, ...options });
           } catch {
-            // Called from a Server Component - safe to ignore, middleware refreshes sessions
+            // Ignore errors in Server Components
           }
         },
         remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: "", ...options });
           } catch {
-            // Called from a Server Component - safe to ignore
+            // Ignore errors in Server Components
           }
         },
       },
@@ -31,14 +32,15 @@ export function createClient() {
   );
 }
 
-// Admin client — uses the service role key, bypasses RLS.
-// Only ever import this in server-side route handlers, never in client code.
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-
 export function createAdminClient() {
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
   );
 }
