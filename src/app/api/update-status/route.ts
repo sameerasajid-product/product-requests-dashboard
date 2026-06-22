@@ -18,8 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "requestId is required" }, { status: 400 });
   }
 
-  // Confirm the caller is a signed-in admin before doing anything privileged
-  const supabase = createServerSupabase();
+  const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
@@ -35,7 +34,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Admins only" }, { status: 403 });
   }
 
-  // Use the admin client (service role) to perform the update + lookups
   const admin = createAdminClient();
 
   const { data: existing, error: fetchError } = await admin
@@ -48,7 +46,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Request not found" }, { status: 404 });
   }
 
-  // Build the update payload from whichever fields were actually provided
   const updatePayload: Record<string, unknown> = { assigned_to: user.id };
   if (newStatus) updatePayload.status = newStatus;
   if (sprintName !== undefined) updatePayload.sprint_name = sprintName;
@@ -64,7 +61,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  // Attach an optional note (e.g. rejection reason) to the history row the DB trigger just created
   if (note && newStatus) {
     await admin
       .from("status_history")
@@ -74,7 +70,6 @@ export async function POST(req: NextRequest) {
       .limit(1);
   }
 
-  // Email the requester when their request goes live
   if (newStatus === "deployed" && process.env.RESEND_API_KEY) {
     const requester = existing.requester as unknown as
       | { email: string; full_name: string | null }
@@ -102,7 +97,6 @@ export async function POST(req: NextRequest) {
           `,
         });
       } catch (emailError) {
-        // Don't fail the status update if the email fails to send
         console.error("Failed to send deployed email:", emailError);
       }
     }
