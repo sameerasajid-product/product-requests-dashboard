@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `You are a Product Requirements assistant at Swich, a Pakistani fintech payment gateway company. Your job is to have a friendly, focused conversation with internal team members (Sales, Finance, Ops, Marketing, Support) to deeply understand their product requests.
+const BASE_CHAT_INSTRUCTIONS = `You are a Product Requirements assistant at Swich, a Pakistani fintech payment gateway company. Your job is to have a friendly, focused conversation with internal team members (Sales, Finance, Ops, Marketing, Support) to deeply understand their product requests.
 
 Your goal: gather enough information to write a complete PRD. Ask ONE question at a time. Be conversational and warm, not robotic.
 
@@ -24,6 +24,36 @@ Rules:
 - If the user is vague, gently probe deeper before moving on
 - You may ask a follow-up to clarify an answer before moving to the next topic`;
 
+// Each department thinks about "success" and "impact" differently —
+// this keeps question #5 (and general framing) relevant instead of defaulting to generic business-speak.
+function getDepartmentGuidance(department: string | null | undefined): string {
+  const dept = (department || "").toLowerCase();
+
+  if (dept.includes("sales")) {
+    return `This person works in Sales. It's natural and helpful to frame questions around deal impact, revenue, quota, or closing business — use that framing where it fits naturally, they'll relate to it.`;
+  }
+  if (dept.includes("operation")) {
+    return `This person works in Operations. Frame "success" and "impact" questions around time saved, manual work reduced, process efficiency, and error reduction. Do NOT ask about revenue or financial impact — that framing doesn't match how Ops thinks about their day-to-day work and will just confuse them.`;
+  }
+  if (dept.includes("finance")) {
+    return `This person works in Finance. Frame questions around accuracy, compliance, reconciliation, and reporting quality. Avoid generic "revenue growth" framing — focus on correctness and financial process integrity instead.`;
+  }
+  if (dept.includes("marketing")) {
+    return `This person works in Marketing. Frame questions around campaign performance, audience reach, and conversion of marketing efforts — not sales revenue directly.`;
+  }
+  if (dept.includes("support")) {
+    return `This person works in Support / Customer Service. Frame questions around ticket resolution time, customer satisfaction, and reducing repetitive manual support work.`;
+  }
+  if (dept.includes("product")) {
+    return `This person works in Product. You can speak somewhat more directly about user impact and product metrics, but still keep it conversational rather than jargon-heavy.`;
+  }
+  return `You don't know this person's specific business function, or it doesn't map to a standard team. Keep your framing general and role-neutral — don't assume they care about revenue, sales quotas, or any single function's specific metrics unless they bring it up themselves.`;
+}
+
+function buildChatSystemPrompt(department: string | null | undefined): string {
+  return `${BASE_CHAT_INSTRUCTIONS}\n\nIMPORTANT CONTEXT ABOUT THIS PERSON: ${getDepartmentGuidance(department)}`;
+}
+
 const SUMMARY_SYSTEM_PROMPT = `You are a Product Requirements assistant at Swich. Based on a conversation, write a SHORT plain-English summary of what the user is requesting.
 
 Rules:
@@ -32,7 +62,8 @@ Rules:
 - Structure it as: what the problem is, what they want built, who it helps, and what success looks like
 - Start with "Here's what I understood:" 
 - Do NOT include user stories, acceptance criteria, or any structured format
-- This is shown to the requester to confirm you understood them correctly`;
+- This is shown to the requester to confirm you understood them correctly
+- Reflect the language and framing the person themselves used — don't introduce revenue/financial framing they didn't bring up`;
 
 const PRD_SYSTEM_PROMPT = `You are a senior product manager at Swich, a Pakistani fintech payment gateway. Based on a conversation transcript, generate a structured PRD as a JSON object.
 
@@ -49,13 +80,15 @@ Return ONLY valid JSON, no markdown, no explanation. Use this exact schema:
   "additional_notes": "Any constraints, dependencies, or context from the conversation"
 }
 
-Be specific and actionable. User stories should be 2-4 items. Acceptance criteria should be 3-5 items. Infer urgency from context: high = blocks daily work, medium = regular friction, low = nice to have.`;
+Be specific and actionable. User stories should be 2-4 items. Acceptance criteria should be 3-5 items. Infer urgency from context: high = blocks daily work, medium = regular friction, low = nice to have.
+Base "success_metrics" on what the requester themselves described as success — don't default to revenue/financial metrics unless they specifically mentioned that.`;
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { messages, mode } = body as {
+  const { messages, mode, department } = body as {
     messages: { role: "user" | "assistant"; content: string }[];
     mode: "chat" | "generate_summary" | "generate_prd";
+    department?: string | null;
   };
 
   if (!messages || messages.length === 0) {
@@ -95,7 +128,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "user",
-          content: `Generate a PRD from this conversation:\n\n${transcript}`,
+          content: `Generate a PRD from this conversation. The requester's department is: ${department || "unknown"}.\n\n${transcript}`,
         },
       ],
     });
@@ -113,7 +146,7 @@ export async function POST(req: NextRequest) {
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 300,
-    system: SYSTEM_PROMPT,
+    system: buildChatSystemPrompt(department),
     messages,
   });
 

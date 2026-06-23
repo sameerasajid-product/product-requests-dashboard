@@ -42,7 +42,7 @@ export default function AIChatRequest({
     const response = await fetch("/api/ai-chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "chat", messages: [firstUserMsg] }),
+      body: JSON.stringify({ mode: "chat", messages: [firstUserMsg], department }),
     });
 
     const data = await response.json();
@@ -69,7 +69,7 @@ export default function AIChatRequest({
       const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "chat", messages: updatedMessages }),
+        body: JSON.stringify({ mode: "chat", messages: updatedMessages, department }),
       });
 
       const data = await response.json();
@@ -96,7 +96,7 @@ export default function AIChatRequest({
       const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "generate_summary", messages: msgs }),
+        body: JSON.stringify({ mode: "generate_summary", messages: msgs, department }),
       });
 
       const data = await response.json();
@@ -122,7 +122,7 @@ export default function AIChatRequest({
       const prdResponse = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "generate_prd", messages }),
+        body: JSON.stringify({ mode: "generate_prd", messages, department }),
       });
 
       const prdData = await prdResponse.json();
