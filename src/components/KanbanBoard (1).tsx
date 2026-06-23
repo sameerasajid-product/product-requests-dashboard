@@ -625,17 +625,17 @@ export default function KanbanBoard() {
     <div className="px-8 py-8">
       <h1 className="text-xl font-semibold text-admin-ink mb-6">Admin Board</h1>
       <StatsBar requests={requests} />
-      <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+      <div className="flex gap-4 overflow-x-auto pb-2">
         {STATUS_ORDER.map((status) => {
           const columnRequests = requests.filter((r) => r.status === status);
           const colors = STATUS_COLORS[status];
           return (
-            <div key={status} className="min-w-0">
+            <div key={status} className="w-72 flex-shrink-0">
               <div className="flex items-center justify-between mb-3 px-1">
                 <span className={`text-xs font-semibold ${colors.text}`}>{STATUS_LABELS[status]}</span>
                 <span className="text-xs text-admin-ink-muted ticket-id">{columnRequests.length}</span>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
                 {columnRequests.length === 0 ? (
                   <div className="border border-dashed border-admin-border rounded-lg py-8 text-center">
                     <span className="text-xs text-admin-ink-muted">Empty</span>
