@@ -32,6 +32,18 @@ export const STATUS_ORDER: RequestStatus[] = [
   "rejected",
 ];
 
+// Statuses that count as "still open" — these block a user from opening a new request.
+// Deployed and Rejected are terminal, so they free up a slot.
+export const OPEN_STATUSES: RequestStatus[] = [
+  "submitted",
+  "in_review",
+  "discussion_with_tech",
+  "in_sprint",
+  "delayed_next_sprint",
+];
+
+export const MAX_OPEN_REQUESTS = 3;
+
 export const STATUS_COLORS: Record<
   RequestStatus,
   { text: string; bg: string; border: string }

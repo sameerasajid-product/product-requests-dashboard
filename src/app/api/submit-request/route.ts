@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerSupabase, createAdminClient } from "@/lib/supabase/server";
+import { MAX_OPEN_REQUESTS, OPEN_STATUSES } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -27,6 +28,25 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+
+  const { count: openCount, error: countError } = await admin
+    .from("requests")
+    .select("id", { count: "exact", head: true })
+    .eq("requested_by", userId)
+    .in("status", OPEN_STATUSES);
+
+  if (countError) {
+    return NextResponse.json({ error: countError.message }, { status: 500 });
+  }
+
+  if ((openCount ?? 0) >= MAX_OPEN_REQUESTS) {
+    return NextResponse.json(
+      {
+        error: `You already have ${MAX_OPEN_REQUESTS} open requests. Wait for one to be Deployed or Rejected before submitting another.`,
+      },
+      { status: 400 }
+    );
+  }
 
   const { data, error } = await admin
     .from("requests")

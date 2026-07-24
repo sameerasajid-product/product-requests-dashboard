@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ProductRequest, StatusHistoryEntry, RequestAttachment } from "@/lib/types";
+import { ProductRequest, StatusHistoryEntry, RequestAttachment, OPEN_STATUSES, MAX_OPEN_REQUESTS } from "@/lib/types";
 import AIChatRequest from "@/components/AIChatRequest";
 import RequestCard from "@/components/RequestCard";
 
@@ -23,6 +23,9 @@ export default function RequestsClient({
   >({});
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const openCount = requests.filter((r) => OPEN_STATUSES.includes(r.status)).length;
+  const atLimit = openCount >= MAX_OPEN_REQUESTS;
 
   const loadRequests = useCallback(async () => {
     const { data: reqs } = await supabase
@@ -97,18 +100,25 @@ export default function RequestsClient({
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-2">
         <h1 className="text-xl font-semibold text-ink">My Requests</h1>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-accent/90 shadow-sm hover:shadow transition-all flex items-center gap-1.5"
+            disabled={atLimit}
+            title={atLimit ? `You have ${MAX_OPEN_REQUESTS} open requests already` : undefined}
+            className="bg-accent text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-accent/90 shadow-sm hover:shadow transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-accent"
           >
             <span className="text-base leading-none">✦</span>
             New request
           </button>
         )}
       </div>
+
+      <p className="text-xs text-ink-muted mb-6">
+        {openCount}/{MAX_OPEN_REQUESTS} open requests
+        {atLimit && " — close one (Deployed or Rejected) before opening another."}
+      </p>
 
       {showForm && (
         <div className="mb-6">

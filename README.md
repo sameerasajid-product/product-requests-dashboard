@@ -51,6 +51,36 @@ requests, with the Product team managing them through a live status board.
 > and the storage bucket + policies (see the "Storage" and "ATTACHMENTS" sections
 > of `supabase/schema.sql` for the exact statements to copy).
 
+### Department accounts (shared logins)
+
+Signup is restricted to whitelisted `@numbers.pk` department emails — there's
+no open self-registration. Each department shares **one login** (e.g.
+`operations@numbers.pk`), which everyone on that team uses to sign in.
+
+- The whitelist lives in `src/lib/departments.ts` — add a new department by
+  adding one line there.
+- It's also mirrored in the database (in `handle_new_user()`, see
+  `supabase/schema.sql` / `supabase/migrations/002_department_signup_whitelist.sql`)
+  as a safety net in case someone signs up via the Supabase API directly
+  instead of the app. **If you add a department, update both places.**
+- Whoever creates the account for a department picks the password and shares
+  it with their team (Slack DM, password manager, etc.) — Claude never sees
+  or stores that password anywhere outside your Supabase project.
+- If a department tries to sign up a second time, Supabase will just say the
+  email's already registered — that's expected, they should sign in instead.
+
+### Open-request limit
+
+Each department account can have at most **3 open requests** at a time
+(`submitted`, `in_review`, `discussion_with_tech`, `in_sprint`, or
+`delayed_next_sprint`). `deployed` and `rejected` don't count — closing one of
+those frees up a slot. This is enforced server-side in
+`src/app/api/submit-request/route.ts` (source of truth) and mirrored in the UI
+(`src/app/requests/RequestsClient.tsx`) so the "New request" button disables
+and shows a count once the limit is hit. To change the limit or which
+statuses count as open, edit `MAX_OPEN_REQUESTS` / `OPEN_STATUSES` in
+`src/lib/types.ts`.
+
 ### Make your first Product team admin
 
 After someone signs up normally through `/signup`, promote them in the SQL editor:
