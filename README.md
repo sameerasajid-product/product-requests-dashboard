@@ -51,23 +51,19 @@ requests, with the Product team managing them through a live status board.
 > and the storage bucket + policies (see the "Storage" and "ATTACHMENTS" sections
 > of `supabase/schema.sql` for the exact statements to copy).
 
-### Department accounts (shared logins)
+### Company email restriction
 
-Signup is restricted to whitelisted `@numbers.pk` department emails — there's
-no open self-registration. Each department shares **one login** (e.g.
-`operations@numbers.pk`), which everyone on that team uses to sign in.
+Signup is restricted to `@numbers.pk` work emails — each employee signs up
+with their own individual address (e.g. `sameera.sajid@numbers.pk`) and
+picks their department from a dropdown, same as before, just domain-gated
+now.
 
-- The whitelist lives in `src/lib/departments.ts` — add a new department by
-  adding one line there.
-- It's also mirrored in the database (in `handle_new_user()`, see
-  `supabase/schema.sql` / `supabase/migrations/002_department_signup_whitelist.sql`)
+- The domain check lives in `src/lib/departments.ts` — change
+  `COMPANY_EMAIL_DOMAIN` there if it ever needs to change.
+- It's mirrored in the database (`handle_new_user()` in
+  `supabase/schema.sql` / `supabase/migrations/003_domain_only_signup.sql`)
   as a safety net in case someone signs up via the Supabase API directly
-  instead of the app. **If you add a department, update both places.**
-- Whoever creates the account for a department picks the password and shares
-  it with their team (Slack DM, password manager, etc.) — Claude never sees
-  or stores that password anywhere outside your Supabase project.
-- If a department tries to sign up a second time, Supabase will just say the
-  email's already registered — that's expected, they should sign in instead.
+  instead of the app.
 
 ### Open-request limit
 

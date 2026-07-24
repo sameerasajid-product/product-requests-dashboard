@@ -4,11 +4,12 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { DEPARTMENT_EMAIL_DOMAIN, getDepartmentForEmail, isCompanyDomain } from "@/lib/departments";
+import { COMPANY_EMAIL_DOMAIN, DEPARTMENTS, isCompanyDomain } from "@/lib/departments";
 
 export default function SignupPage() {
   const supabase = createClient();
   const [fullName, setFullName] = useState("");
+  const [department, setDepartment] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,15 +23,7 @@ export default function SignupPage() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!isCompanyDomain(normalizedEmail)) {
-      setError(`Only @${DEPARTMENT_EMAIL_DOMAIN} email addresses can sign up.`);
-      return;
-    }
-
-    const department = getDepartmentForEmail(normalizedEmail);
-    if (!department) {
-      setError(
-        `"${normalizedEmail}" isn't a recognized department account. Use your department's shared address (e.g. operations@${DEPARTMENT_EMAIL_DOMAIN}), or ask your Product team to add a new one.`
-      );
+      setError(`Only @${COMPANY_EMAIL_DOMAIN} email addresses can sign up.`);
       return;
     }
 
@@ -78,18 +71,13 @@ export default function SignupPage() {
           <p className="text-xs font-mono text-ink-muted uppercase tracking-wide mb-1">
             Product Requests
           </p>
-          <h1 className="text-2xl font-semibold text-ink">Create your department account</h1>
-          <p className="text-sm text-ink-muted mt-2">
-            Each department shares one login. If yours already has an account,
-            just <Link href="/login" className="text-accent font-medium">sign in</Link> instead
-            of creating a new one.
-          </p>
+          <h1 className="text-2xl font-semibold text-ink">Create an account</h1>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-ink mb-1.5">
-              Your name
+              Full name
             </label>
             <input
               type="text"
@@ -103,7 +91,24 @@ export default function SignupPage() {
 
           <div>
             <label className="block text-sm font-medium text-ink mb-1.5">
-              Department email
+              Department
+            </label>
+            <select
+              required
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+            >
+              <option value="" disabled>Select department</option>
+              {DEPARTMENTS.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">
+              Work email
             </label>
             <input
               type="email"
@@ -111,10 +116,10 @@ export default function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-ink focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
-              placeholder="operations@numbers.pk"
+              placeholder={`you@${COMPANY_EMAIL_DOMAIN}`}
             />
             <p className="text-xs text-ink-muted mt-1.5">
-              Your department&rsquo;s shared @{DEPARTMENT_EMAIL_DOMAIN} address.
+              Must be your @{COMPANY_EMAIL_DOMAIN} work email.
             </p>
           </div>
 

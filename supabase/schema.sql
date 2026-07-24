@@ -57,26 +57,13 @@ create table profiles (
 );
 
 -- Auto-create a profile row whenever someone signs up.
--- Safety net: this re-validates the department email server-side, in case
+-- Safety net: this re-validates the email domain server-side, in case
 -- someone signs up through the Supabase API directly instead of the app UI.
--- IMPORTANT: keep this list in sync with DEPARTMENT_EMAILS in src/lib/departments.ts
 create or replace function handle_new_user()
 returns trigger as $$
-declare
-  resolved_department text;
 begin
-  resolved_department := case lower(new.email)
-    when 'operations@numbers.pk' then 'Operations'
-    when 'sales@numbers.pk' then 'Sales'
-    when 'finance@numbers.pk' then 'Finance'
-    when 'marketing@numbers.pk' then 'Marketing'
-    when 'support@numbers.pk' then 'Support'
-    when 'product@numbers.pk' then 'Product'
-    else null
-  end;
-
-  if resolved_department is null then
-    raise exception 'Sign up with a recognized @numbers.pk department email.';
+  if lower(new.email) not like '%@numbers.pk' then
+    raise exception 'Sign up with your @numbers.pk work email.';
   end if;
 
   insert into public.profiles (id, email, full_name, department)
@@ -84,7 +71,7 @@ begin
     new.id,
     new.email,
     new.raw_user_meta_data->>'full_name',
-    resolved_department
+    new.raw_user_meta_data->>'department'
   );
   return new;
 end;
