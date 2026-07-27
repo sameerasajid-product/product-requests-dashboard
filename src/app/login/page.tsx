@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -13,6 +13,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deactivated, setDeactivated] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("deactivated") === "1") {
+      setDeactivated(true);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +53,12 @@ export default function LoginPage() {
           </p>
           <h1 className="text-2xl font-semibold text-ink">Sign in</h1>
         </div>
+
+        {deactivated && (
+          <p className="text-sm text-status-delayed bg-status-delayed-bg px-3 py-2 rounded-lg mb-4">
+            Your account has been deactivated. Contact your Product team admin if you think this is a mistake.
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import RequestTimeline from "@/components/admin/RequestTimeline";
+import { downloadRequestsAsExcel, withinDateFilter, DATE_FILTER_LABELS, DateFilterOption } from "@/lib/exportExcel";
 import {
   ProductRequest,
   RequestStatus,
@@ -22,7 +24,7 @@ function formatDate(iso: string) {
 }
 
 // ─── Word Doc Download ───────────────────────────────────────────────────────
-async function downloadPRDasWord(request: ProductRequest) {
+export async function downloadPRDasWord(request: ProductRequest) {
   const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, LevelFormat, BorderStyle } = await import("docx");
 
   const ticketId = `PR-${String(request.ticket_number).padStart(4, "0")}`;
@@ -141,7 +143,7 @@ const blob = new Blob([new Uint8Array(buffer)], { type: "application/vnd.openxml
 }
 
 // ─── Stats Bar ───────────────────────────────────────────────────────────────
-function StatsBar({ requests }: { requests: ProductRequest[] }) {
+export function StatsBar({ requests }: { requests: ProductRequest[] }) {
   const counts = useMemo(() => {
     const byStatus: Record<RequestStatus, number> = {
       submitted: 0, in_review: 0, discussion_with_tech: 0,
@@ -183,7 +185,7 @@ function StatsBar({ requests }: { requests: ProductRequest[] }) {
 }
 
 // ─── Request Detail Modal ─────────────────────────────────────────────────────
-function RequestModal({
+export function RequestModal({
   request,
   attachments,
   onClose,
@@ -305,6 +307,12 @@ function RequestModal({
           <div>
             <p className="text-xs font-semibold text-admin-ink-muted uppercase tracking-wide mb-1.5">Description</p>
             <p className="text-sm text-admin-ink leading-relaxed">{request.description}</p>
+          </div>
+
+          {/* Timeline */}
+          <div>
+            <p className="text-xs font-semibold text-admin-ink-muted uppercase tracking-wide mb-2">Timeline</p>
+            <RequestTimeline requestId={request.id} />
           </div>
 
           {/* Attachments */}
@@ -583,6 +591,14 @@ export default function KanbanBoard() {
   const [attachmentsByRequest, setAttachmentsByRequest] = useState<Record<string, RequestAttachment[]>>({});
   const [loading, setLoading] = useState(true);
 
+  const [search, setSearch] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [urgencyFilter, setUrgencyFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<DateFilterOption>("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [downloading, setDownloading] = useState(false);
+
   const loadRequests = useCallback(async () => {
     const { data } = await supabase
       .from("requests")
@@ -621,13 +637,102 @@ export default function KanbanBoard() {
 
   if (loading) return <p className="text-sm text-admin-ink-muted px-8 py-10">Loading…</p>;
 
+  const departments = Array.from(new Set(requests.map((r) => r.department).filter((d): d is string => !!d))).sort();
+
+  let filteredRequests = requests;
+  if (departmentFilter !== "all") filteredRequests = filteredRequests.filter((r) => r.department === departmentFilter);
+  if (urgencyFilter !== "all") filteredRequests = filteredRequests.filter((r) => r.urgency === urgencyFilter);
+  if (dateFilter !== "all") filteredRequests = filteredRequests.filter((r) => withinDateFilter(r.created_at, dateFilter, customFrom, customTo));
+  const q = search.trim().toLowerCase();
+  if (q) filteredRequests = filteredRequests.filter((r) => r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      await downloadRequestsAsExcel(filteredRequests, `swich-requests-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <div className="px-8 py-8">
       <h1 className="text-xl font-semibold text-admin-ink mb-6">Admin Board</h1>
       <StatsBar requests={requests} />
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search title or description…"
+          className="text-sm px-3 py-2 rounded-lg border border-admin-border bg-admin-surface text-admin-ink placeholder:text-admin-ink-muted w-64"
+        />
+        <select
+          value={departmentFilter}
+          onChange={(e) => setDepartmentFilter(e.target.value)}
+          className="text-sm px-3 py-2 rounded-lg border border-admin-border bg-admin-surface text-admin-ink"
+        >
+          <option value="all">All departments</option>
+          {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <select
+          value={urgencyFilter}
+          onChange={(e) => setUrgencyFilter(e.target.value)}
+          className="text-sm px-3 py-2 rounded-lg border border-admin-border bg-admin-surface text-admin-ink"
+        >
+          <option value="all">All urgency</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <select
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value as DateFilterOption)}
+          className="text-sm px-3 py-2 rounded-lg border border-admin-border bg-admin-surface text-admin-ink"
+        >
+          {(Object.keys(DATE_FILTER_LABELS) as DateFilterOption[]).map((key) => (
+            <option key={key} value={key}>{DATE_FILTER_LABELS[key]}</option>
+          ))}
+        </select>
+        {dateFilter === "custom" && (
+          <>
+            <input
+              type="date"
+              value={customFrom}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              className="text-sm px-3 py-2 rounded-lg border border-admin-border bg-admin-surface text-admin-ink"
+            />
+            <span className="text-xs text-admin-ink-muted">to</span>
+            <input
+              type="date"
+              value={customTo}
+              onChange={(e) => setCustomTo(e.target.value)}
+              className="text-sm px-3 py-2 rounded-lg border border-admin-border bg-admin-surface text-admin-ink"
+            />
+          </>
+        )}
+        {(departmentFilter !== "all" || urgencyFilter !== "all" || dateFilter !== "all" || search) && (
+          <button
+            onClick={() => { setDepartmentFilter("all"); setUrgencyFilter("all"); setDateFilter("all"); setCustomFrom(""); setCustomTo(""); setSearch(""); }}
+            className="text-xs text-admin-ink-muted hover:text-admin-ink underline"
+          >
+            Clear filters
+          </button>
+        )}
+        <button
+          onClick={handleDownload}
+          disabled={downloading || filteredRequests.length === 0}
+          className="text-xs font-medium bg-admin-surface border border-admin-border text-admin-ink px-3 py-2 rounded-lg hover:border-accent/40 transition-colors disabled:opacity-50"
+        >
+          {downloading ? "Preparing…" : "⬇ Download Excel"}
+        </button>
+        <span className="text-xs text-admin-ink-muted ml-auto">{filteredRequests.length} of {requests.length}</span>
+      </div>
+
       <div className="flex gap-4 overflow-x-auto pb-2">
         {STATUS_ORDER.map((status) => {
-          const columnRequests = requests.filter((r) => r.status === status);
+          const columnRequests = filteredRequests.filter((r) => r.status === status);
           const colors = STATUS_COLORS[status];
           return (
             <div key={status} className="w-72 flex-shrink-0">

@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AdminSidebar({
@@ -10,6 +11,7 @@ export default function AdminSidebar({
   fullName: string | null;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClient();
 
   async function handleSignOut() {
@@ -17,6 +19,11 @@ export default function AdminSidebar({
     router.push("/login");
     router.refresh();
   }
+
+  const navItems = [
+    { href: "/admin", label: "Board" },
+    { href: "/admin/users", label: "Users" },
+  ];
 
   return (
     <aside className="w-60 flex-shrink-0 bg-admin-sidebar border-r border-admin-border min-h-screen flex flex-col">
@@ -37,10 +44,23 @@ export default function AdminSidebar({
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
-        <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-accent-soft text-accent text-sm font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-          Board
-        </div>
+        {navItems.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-accent-soft text-accent"
+                  : "text-admin-ink-muted hover:bg-black/[0.04] hover:text-admin-ink"
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-accent" : "bg-transparent"}`} />
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="px-3 pb-4 pt-3 border-t border-admin-border">

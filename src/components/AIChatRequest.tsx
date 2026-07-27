@@ -22,11 +22,13 @@ export default function AIChatRequest({
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+  const [pendingPrd, setPendingPrd] = useState<Record<string, unknown> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [lastFailedAction, setLastFailedAction] = useState<(() => void) | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -36,21 +38,39 @@ export default function AIChatRequest({
 
   async function startChat() {
     setStarted(true);
+    await attemptStartChat();
+  }
+
+  async function attemptStartChat() {
     setChatLoading(true);
+    setError(null);
 
     const firstUserMsg: Message = { role: "user", content: "Hi, I'd like to submit a product request." };
-    const response = await fetch("/api/ai-chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "chat", messages: [firstUserMsg], department }),
-    });
 
-    const data = await response.json();
-    const reply = data.reply ?? "Hi! What problem or missing feature would you like to flag for the product team?";
+    try {
+      const response = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "chat", messages: [firstUserMsg], department }),
+      });
 
-    setMessages([firstUserMsg, { role: "assistant", content: reply }]);
-    setChatLoading(false);
-    setTimeout(() => inputRef.current?.focus(), 100);
+      const data = await response.json();
+      if (data.error) {
+        setError(data.error);
+        setLastFailedAction(() => () => attemptStartChat());
+        return;
+      }
+
+      const reply = data.reply ?? "Hi! What problem or missing feature would you like to flag for the product team?";
+      setMessages([firstUserMsg, { role: "assistant", content: reply }]);
+      setLastFailedAction(null);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    } catch {
+      setError("Couldn't start the chat. Please try again.");
+      setLastFailedAction(() => () => attemptStartChat());
+    } finally {
+      setChatLoading(false);
+    }
   }
 
   async function sendMessage(customInput?: string) {
@@ -62,9 +82,14 @@ export default function AIChatRequest({
     setMessages(updatedMessages);
     setInput("");
     setSummary(null);
-    setChatLoading(true);
+    setPendingPrd(null);
     setError(null);
+    setLastFailedAction(null);
+    await attemptChatCall(updatedMessages);
+  }
 
+  async function attemptChatCall(updatedMessages: Message[]) {
+    setChatLoading(true);
     try {
       const response = await fetch("/api/ai-chat", {
         method: "POST",
@@ -73,16 +98,25 @@ export default function AIChatRequest({
       });
 
       const data = await response.json();
+      if (data.error) {
+        setError(data.error);
+        setLastFailedAction(() => () => attemptChatCall(updatedMessages));
+        return;
+      }
+
       const reply: string = data.reply ?? "Sorry, something went wrong. Try again?";
       const assistantMsg: Message = { role: "assistant", content: reply };
       const finalMessages = [...updatedMessages, assistantMsg];
       setMessages(finalMessages);
+      setError(null);
+      setLastFailedAction(null);
 
       if (reply.includes("I have everything I need to write this up")) {
         setTimeout(() => generateSummary(finalMessages), 600);
       }
     } catch {
       setError("Something went wrong. Please try again.");
+      setLastFailedAction(() => () => attemptChatCall(updatedMessages));
     } finally {
       setChatLoading(false);
     }
@@ -96,17 +130,21 @@ export default function AIChatRequest({
       const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "generate_summary", messages: msgs, department }),
+        body: JSON.stringify({ mode: "generate_summary_and_prd", messages: msgs, department }),
       });
 
       const data = await response.json();
-      if (data.summary) {
+      if (data.summary && data.prd) {
         setSummary(data.summary);
+        setPendingPrd(data.prd);
+        setLastFailedAction(null);
       } else {
-        setError("Couldn't generate summary. Please try again.");
+        setError(data.error || "Couldn't generate summary. Please try again.");
+        setLastFailedAction(() => () => generateSummary(msgs));
       }
     } catch {
       setError("Failed to generate summary. Please try again.");
+      setLastFailedAction(() => () => generateSummary(msgs));
     } finally {
       setSummaryLoading(false);
     }
@@ -118,39 +156,35 @@ export default function AIChatRequest({
     setError(null);
 
     try {
-      // Generate PRD silently in background
-      const prdResponse = await fetch("/api/ai-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "generate_prd", messages, department }),
-      });
-
-      const prdData = await prdResponse.json();
-      if (!prdData.prd) {
-        setError("Failed to process request. Please try again.");
+      if (!pendingPrd) {
+        setError("Something went wrong preparing your request. Please try again.");
+        setLastFailedAction(() => () => generateSummary(messages));
         setSubmitting(false);
         setConfirmed(false);
         return;
       }
 
-      // Submit to Supabase
+      // PRD was already generated alongside the summary — submit it directly
       const submitResponse = await fetch("/api/submit-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prd: prdData.prd, chatTranscript: messages, userId, department }),
+        body: JSON.stringify({ prd: pendingPrd, chatTranscript: messages, userId, department }),
       });
 
       const submitData = await submitResponse.json();
       if (submitData.error) {
         setError(submitData.error);
+        setLastFailedAction(() => () => handleConfirm());
         setSubmitting(false);
         setConfirmed(false);
         return;
       }
 
+      setLastFailedAction(null);
       onCreated();
     } catch {
       setError("Failed to submit. Please try again.");
+      setLastFailedAction(() => () => handleConfirm());
       setSubmitting(false);
       setConfirmed(false);
     }
@@ -158,7 +192,10 @@ export default function AIChatRequest({
 
   function handleAddMore() {
     setSummary(null);
+    setPendingPrd(null);
     setConfirmed(false);
+    setError(null);
+    setLastFailedAction(null);
     setTimeout(() => inputRef.current?.focus(), 100);
   }
 
@@ -383,9 +420,17 @@ export default function AIChatRequest({
 
       {error && (
         <div className="px-5 py-3 border-t border-border">
-          <p className="text-sm text-status-delayed bg-status-delayed-bg px-3 py-2 rounded-lg">
-            {error}
-          </p>
+          <div className="flex items-center justify-between gap-3 bg-status-delayed-bg rounded-lg px-3 py-2">
+            <p className="text-sm text-status-delayed">{error}</p>
+            {lastFailedAction && (
+              <button
+                onClick={() => { const action = lastFailedAction; setError(null); setLastFailedAction(null); action(); }}
+                className="text-xs font-medium text-status-delayed border border-status-delayed/30 px-3 py-1.5 rounded-lg hover:bg-status-delayed/10 transition-colors flex-shrink-0"
+              >
+                Try again
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

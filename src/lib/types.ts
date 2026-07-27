@@ -102,6 +102,7 @@ export interface Profile {
   full_name: string | null;
   department: string | null;
   role: UserRole;
+  is_active: boolean;
   created_at: string;
 }
 

@@ -36,17 +36,28 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Logged in and sitting on an auth page -> send to the right dashboard
-  if (user && isAuthPage) {
+  if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, is_active")
       .eq("id", user.id)
       .single();
 
-    const url = request.nextUrl.clone();
-    url.pathname = profile?.role === "admin" ? "/admin" : "/requests";
-    return NextResponse.redirect(url);
+    // Deactivated account -> sign out immediately, everywhere, every request
+    if (profile && profile.is_active === false) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("deactivated", "1");
+      return NextResponse.redirect(url);
+    }
+
+    // Logged in and sitting on an auth page -> send to the right dashboard
+    if (isAuthPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = profile?.role === "admin" ? "/admin" : "/requests";
+      return NextResponse.redirect(url);
+    }
   }
 
   return response;

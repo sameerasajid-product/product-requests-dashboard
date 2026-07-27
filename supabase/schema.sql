@@ -53,6 +53,7 @@ create table profiles (
   full_name text,
   department text,
   role user_role not null default 'requester',
+  is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -199,6 +200,11 @@ create policy "Admins can view all profiles"
 create policy "Users can update their own profile"
   on profiles for update
   using (id = auth.uid());
+
+create policy "Admins can update any profile"
+  on profiles for update
+  using (is_admin())
+  with check (is_admin());
 
 -- REQUESTS policies
 create policy "Users can view their own requests"

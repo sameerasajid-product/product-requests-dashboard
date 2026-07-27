@@ -3,7 +3,7 @@
 A request-tracking system for Sales, Ops, and Finance to submit product/feature
 requests, with the Product team managing them through a live status board.
 
-**Stack:** Next.js (App Router) + Supabase (DB, Auth, Storage, Realtime) + Resend (email) + Vercel (hosting)
+**Stack:** Next.js (App Router) + Supabase (DB, Auth, Storage, Realtime) + Resend (email) + Groq (AI chatbot) + Vercel (hosting)
 
 ## How it works
 
@@ -100,7 +100,24 @@ one-time, deliberate action so random people can't grant themselves admin access
 
 ---
 
-## 3. Run it locally
+## 3. Set up Groq (free tier, powers the AI chatbot)
+
+1. Go to [console.groq.com/keys](https://console.groq.com/keys) and sign in/sign up.
+2. Click **Create API Key** → copy it → that's `GROQ_API_KEY`.
+3. This is on Groq's free tier, which has rate limits (requests per minute/day) —
+   see [console.groq.com/docs/rate-limits](https://console.groq.com/docs/rate-limits)
+   for current numbers per model. `llama-3.3-70b-versatile` (the default here)
+   has a 1,000 requests/day free-tier cap, which comfortably covers normal
+   internal usage (each completed chatbot conversation uses ~7-8 API calls).
+   If you ever need more, Groq's paid "Developer" tier raises these limits
+   and is still pay-per-token, not a subscription.
+4. The model used is set in `src/app/api/ai-chat/route.ts` (`GROQ_MODEL`,
+   defaults to `llama-3.3-70b-versatile`) — override it with a `GROQ_MODEL`
+   env var to try a different model.
+
+---
+
+## 4. Run it locally
 
 ```bash
 npm install
@@ -115,7 +132,7 @@ SQL so you can see the Admin Board approve/reject and move requests through stat
 
 ---
 
-## 4. Push to GitHub
+## 5. Push to GitHub
 
 ```bash
 git init
@@ -128,7 +145,7 @@ gh repo create product-requests-dashboard --private --source=. --push
 
 ---
 
-## 5. Deploy to Vercel
+## 6. Deploy to Vercel
 
 1. Go to [vercel.com/new](https://vercel.com/new) → import your GitHub repo.
 2. Add the same environment variables from `.env.local` in

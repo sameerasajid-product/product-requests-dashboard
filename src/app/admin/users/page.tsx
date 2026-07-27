@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AdminSidebar from "@/components/AdminSidebar";
-import AdminBoardView from "@/components/admin/AdminBoardView";
+import UserManagement from "@/components/admin/UserManagement";
 
-export default async function AdminPage() {
+export default async function AdminUsersPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -25,7 +25,7 @@ export default async function AdminPage() {
     <div className="flex min-h-screen bg-admin-bg">
       <AdminSidebar fullName={profile?.full_name ?? null} />
       <main className="flex-1 min-w-0">
-        <AdminBoardView />
+        <UserManagement currentUserId={user.id} />
       </main>
     </div>
   );

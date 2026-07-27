@@ -29,6 +29,19 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
 
+  const { data: requesterProfile } = await admin
+    .from("profiles")
+    .select("is_active")
+    .eq("id", userId)
+    .single();
+
+  if (requesterProfile && requesterProfile.is_active === false) {
+    return NextResponse.json(
+      { error: "This account has been deactivated. Contact your Product team admin." },
+      { status: 403 }
+    );
+  }
+
   const { count: openCount, error: countError } = await admin
     .from("requests")
     .select("id", { count: "exact", head: true })
