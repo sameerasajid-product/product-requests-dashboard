@@ -15,6 +15,9 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +48,26 @@ export default function SignupPage() {
     }
 
     setDone(true);
+    setSubmittedEmail(normalizedEmail);
+  }
+
+  async function handleResend() {
+    if (resendCooldown > 0 || resendState === "sending") return;
+    setResendState("sending");
+    const { error } = await supabase.auth.resend({ type: "signup", email: submittedEmail });
+    setResendState("sent");
+    if (!error) {
+      setResendCooldown(30);
+      const interval = setInterval(() => {
+        setResendCooldown((s) => {
+          if (s <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return s - 1;
+        });
+      }, 1000);
+    }
   }
 
   if (done) {
@@ -53,11 +76,28 @@ export default function SignupPage() {
         <div className="w-full max-w-sm text-center">
           <h1 className="text-2xl font-semibold text-ink mb-2">Check your email</h1>
           <p className="text-ink-muted text-sm mb-6">
-            We sent a confirmation link to {email}. Confirm it, then sign in.
+            We sent a confirmation link to {submittedEmail}. Confirm it, then sign in.
           </p>
-          <Link href="/login" className="text-accent font-medium text-sm">
-            Back to sign in
-          </Link>
+
+          <button
+            onClick={handleResend}
+            disabled={resendCooldown > 0 || resendState === "sending"}
+            className="text-sm text-accent font-medium disabled:opacity-50 disabled:cursor-not-allowed mb-1"
+          >
+            {resendState === "sending"
+              ? "Sending…"
+              : resendCooldown > 0
+              ? `Resend email (${resendCooldown}s)`
+              : resendState === "sent"
+              ? "Email resent — didn't get it? Resend again"
+              : "Didn't get it? Resend email"}
+          </button>
+
+          <p className="mt-5">
+            <Link href="/login" className="text-accent font-medium text-sm">
+              Back to sign in
+            </Link>
+          </p>
         </div>
       </div>
     );
