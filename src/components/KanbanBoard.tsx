@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import RequestTimeline from "@/components/admin/RequestTimeline";
+import RequestComments from "@/components/RequestComments";
 import { downloadRequestsAsExcel, withinDateFilter, DATE_FILTER_LABELS, DateFilterOption } from "@/lib/exportExcel";
 import {
   ProductRequest,
@@ -147,12 +148,12 @@ export function StatsBar({ requests }: { requests: ProductRequest[] }) {
   const counts = useMemo(() => {
     const byStatus: Record<RequestStatus, number> = {
       submitted: 0, in_review: 0, discussion_with_tech: 0,
-      in_sprint: 0, deployed: 0, delayed_next_sprint: 0, rejected: 0,
+      in_sprint: 0, deployed: 0, delayed_next_sprint: 0, rejected: 0, cancelled: 0,
     };
     let highUrgency = 0;
     requests.forEach((r) => {
       byStatus[r.status] += 1;
-      if (r.urgency === "high" && r.status !== "deployed" && r.status !== "rejected") highUrgency += 1;
+      if (r.urgency === "high" && r.status !== "deployed" && r.status !== "rejected" && r.status !== "cancelled") highUrgency += 1;
     });
     return { byStatus, highUrgency };
   }, [requests]);
@@ -208,7 +209,44 @@ export function RequestModal({
   const [ratingSaving, setRatingSaving] = useState(false);
   const [popupRating, setPopupRating] = useState<RequestRating | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [editingPrd, setEditingPrd] = useState(false);
+  const [editTitle, setEditTitle] = useState(request.title);
+  const [editProblem, setEditProblem] = useState(request.prd_problem_statement ?? "");
+  const [editUserStories, setEditUserStories] = useState((request.prd_user_stories ?? []).join("\n"));
+  const [editAcceptance, setEditAcceptance] = useState((request.prd_acceptance_criteria ?? []).join("\n"));
+  const [editTeams, setEditTeams] = useState((request.prd_affected_teams ?? []).join(", "));
+  const [editMetrics, setEditMetrics] = useState(request.prd_success_metrics ?? "");
+  const [editNotes, setEditNotes] = useState(request.prd_additional_notes ?? "");
+  const [savingPrd, setSavingPrd] = useState(false);
   const popupTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const supabaseForUser = createClient();
+  useEffect(() => {
+    supabaseForUser.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleSavePrd() {
+    setSavingPrd(true);
+    const { error } = await supabaseForUser
+      .from("requests")
+      .update({
+        title: editTitle.trim() || request.title,
+        prd_problem_statement: editProblem.trim() || null,
+        prd_user_stories: editUserStories.split("\n").map((s) => s.trim()).filter(Boolean),
+        prd_acceptance_criteria: editAcceptance.split("\n").map((s) => s.trim()).filter(Boolean),
+        prd_affected_teams: editTeams.split(",").map((s) => s.trim()).filter(Boolean),
+        prd_success_metrics: editMetrics.trim() || null,
+        prd_additional_notes: editNotes.trim() || null,
+      })
+      .eq("id", request.id);
+    setSavingPrd(false);
+    if (!error) {
+      setEditingPrd(false);
+      onUpdated();
+    }
+  }
 
   const isPending = request.status === "submitted";
   const isRejected = request.status === "rejected";
@@ -315,6 +353,14 @@ export function RequestModal({
             <RequestTimeline requestId={request.id} />
           </div>
 
+          {/* Messages with requester */}
+          <div>
+            <p className="text-xs font-semibold text-admin-ink-muted uppercase tracking-wide mb-2">Messages with requester</p>
+            {currentUserId && (
+              <RequestComments requestId={request.id} currentUserId={currentUserId} theme="admin" />
+            )}
+          </div>
+
           {/* Attachments */}
           {attachments.length > 0 && (
             <div>
@@ -344,16 +390,119 @@ export function RequestModal({
             <div className="bg-accent-soft/50 rounded-xl border border-accent/20 p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-accent uppercase tracking-wide">✦ AI-Generated PRD</p>
-                <button
-                  onClick={handleDownloadPRD}
-                  disabled={downloading}
-                  className="flex items-center gap-1.5 text-xs font-medium text-accent bg-white border border-accent/30 px-3 py-1.5 rounded-lg hover:bg-accent hover:text-white transition-all disabled:opacity-60"
-                >
-                  {downloading ? "Generating…" : "⬇ Download .docx"}
-                </button>
+                <div className="flex items-center gap-2">
+                  {editingPrd ? (
+                    <>
+                      <button
+                        onClick={handleSavePrd}
+                        disabled={savingPrd}
+                        className="text-xs font-medium text-white bg-accent px-3 py-1.5 rounded-lg disabled:opacity-60"
+                      >
+                        {savingPrd ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingPrd(false);
+                          setEditTitle(request.title);
+                          setEditProblem(request.prd_problem_statement ?? "");
+                          setEditUserStories((request.prd_user_stories ?? []).join("\n"));
+                          setEditAcceptance((request.prd_acceptance_criteria ?? []).join("\n"));
+                          setEditTeams((request.prd_affected_teams ?? []).join(", "));
+                          setEditMetrics(request.prd_success_metrics ?? "");
+                          setEditNotes(request.prd_additional_notes ?? "");
+                        }}
+                        className="text-xs font-medium text-admin-ink-muted"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setEditingPrd(true)}
+                      className="text-xs font-medium text-accent bg-white border border-accent/30 px-3 py-1.5 rounded-lg hover:bg-accent hover:text-white transition-all"
+                    >
+                      ✎ Edit
+                    </button>
+                  )}
+                  <button
+                    onClick={handleDownloadPRD}
+                    disabled={downloading}
+                    className="flex items-center gap-1.5 text-xs font-medium text-accent bg-white border border-accent/30 px-3 py-1.5 rounded-lg hover:bg-accent hover:text-white transition-all disabled:opacity-60"
+                  >
+                    {downloading ? "Generating…" : "⬇ Download .docx"}
+                  </button>
+                </div>
               </div>
 
-              {request.prd_problem_statement && (
+              {editingPrd ? (
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-1">Title</p>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full text-sm px-2.5 py-1.5 rounded-lg border border-admin-border bg-white text-admin-ink"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-1">Problem Statement</p>
+                    <textarea
+                      value={editProblem}
+                      onChange={(e) => setEditProblem(e.target.value)}
+                      rows={3}
+                      className="w-full text-sm px-2.5 py-1.5 rounded-lg border border-admin-border bg-white text-admin-ink"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-1">User Stories (one per line)</p>
+                    <textarea
+                      value={editUserStories}
+                      onChange={(e) => setEditUserStories(e.target.value)}
+                      rows={4}
+                      className="w-full text-sm px-2.5 py-1.5 rounded-lg border border-admin-border bg-white text-admin-ink"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-1">Acceptance Criteria (one per line)</p>
+                    <textarea
+                      value={editAcceptance}
+                      onChange={(e) => setEditAcceptance(e.target.value)}
+                      rows={4}
+                      className="w-full text-sm px-2.5 py-1.5 rounded-lg border border-admin-border bg-white text-admin-ink"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-1">Success Metrics</p>
+                    <textarea
+                      value={editMetrics}
+                      onChange={(e) => setEditMetrics(e.target.value)}
+                      rows={2}
+                      className="w-full text-sm px-2.5 py-1.5 rounded-lg border border-admin-border bg-white text-admin-ink"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-1">Affected Teams (comma-separated)</p>
+                    <input
+                      type="text"
+                      value={editTeams}
+                      onChange={(e) => setEditTeams(e.target.value)}
+                      className="w-full text-sm px-2.5 py-1.5 rounded-lg border border-admin-border bg-white text-admin-ink"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-1">Notes</p>
+                    <textarea
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      rows={2}
+                      className="w-full text-sm px-2.5 py-1.5 rounded-lg border border-admin-border bg-white text-admin-ink"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {request.prd_problem_statement && (
                 <div>
                   <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-1">Problem Statement</p>
                   <p className="text-sm text-admin-ink leading-relaxed">{request.prd_problem_statement}</p>
@@ -410,6 +559,8 @@ export function RequestModal({
                   <p className="text-[10px] font-semibold text-admin-ink-muted uppercase tracking-wide mb-1">Notes</p>
                   <p className="text-xs text-admin-ink-muted leading-relaxed">{request.prd_additional_notes}</p>
                 </div>
+              )}
+                </>
               )}
             </div>
           )}
@@ -478,11 +629,17 @@ export function RequestModal({
                   <input type="text" value={sprintName} onChange={(e) => setSprintName(e.target.value)}
                     placeholder="Sprint name (e.g. Sprint 24)"
                     className="text-sm px-3 py-2 rounded-lg border border-admin-border bg-admin-bg text-admin-ink placeholder:text-admin-ink-muted" />
-                  <select value={etaLabel} onChange={(e) => setEtaLabel(e.target.value)}
-                    className="text-sm px-3 py-2 rounded-lg border border-admin-border bg-admin-bg text-admin-ink">
-                    <option value="">No ETA set</option>
-                    {ETA_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                  </select>
+                  <input
+                    type="text"
+                    list="eta-suggestions"
+                    value={etaLabel}
+                    onChange={(e) => setEtaLabel(e.target.value)}
+                    placeholder="ETA (e.g. Next 30 days, or a specific date)"
+                    className="text-sm px-3 py-2 rounded-lg border border-admin-border bg-admin-bg text-admin-ink placeholder:text-admin-ink-muted"
+                  />
+                  <datalist id="eta-suggestions">
+                    {ETA_OPTIONS.map((opt) => <option key={opt} value={opt} />)}
+                  </datalist>
                 </div>
                 <input type="text" value={note} onChange={(e) => setNote(e.target.value)}
                   placeholder="Optional note (e.g. reason for delay)"

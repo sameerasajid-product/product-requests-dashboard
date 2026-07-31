@@ -152,6 +152,8 @@ export default function RequestsClient({
               request={r}
               history={historyByRequest[r.id] ?? []}
               attachments={attachmentsByRequest[r.id] ?? []}
+              userId={userId}
+              onUpdated={loadRequests}
             />
           ))}
         </div>

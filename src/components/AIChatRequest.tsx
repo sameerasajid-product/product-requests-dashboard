@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 interface Message {
   role: "user" | "assistant";
@@ -29,6 +30,8 @@ export default function AIChatRequest({
   const [started, setStarted] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [lastFailedAction, setLastFailedAction] = useState<(() => void) | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const supabase = createClient();
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -178,6 +181,25 @@ export default function AIChatRequest({
         setSubmitting(false);
         setConfirmed(false);
         return;
+      }
+
+      const newRequestId = submitData.request?.id;
+      if (newRequestId && attachedFiles.length > 0) {
+        for (const file of attachedFiles) {
+          const path = `${newRequestId}/${Date.now()}-${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from("request-attachments")
+            .upload(path, file);
+          if (!uploadError) {
+            await supabase.from("request_attachments").insert({
+              request_id: newRequestId,
+              file_path: path,
+              file_name: file.name,
+              file_type: file.type || null,
+              file_size: file.size,
+            });
+          }
+        }
       }
 
       setLastFailedAction(null);
@@ -344,6 +366,45 @@ export default function AIChatRequest({
             </div>
             <div className="max-w-[85%] bg-bg border border-border rounded-2xl rounded-bl-sm px-4 py-3 space-y-3">
               <p className="text-sm text-ink leading-relaxed">{summary}</p>
+
+              {/* Attachments */}
+              <div className="pt-2 border-t border-border">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-xs text-ink-muted">Attach a screenshot or file (optional)</p>
+                  <label className="text-xs font-medium text-accent cursor-pointer">
+                    📎 Attach
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        setAttachedFiles((prev) => [...prev, ...files]);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {attachedFiles.map((f, i) => (
+                      <span
+                        key={i}
+                        className="flex items-center gap-1 text-xs bg-bg border border-border rounded-lg px-2 py-1 text-ink"
+                      >
+                        <span className="truncate max-w-[140px]">{f.name}</span>
+                        <button
+                          onClick={() => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="text-ink-muted hover:text-status-delayed"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="pt-2 border-t border-border">
                 <p className="text-xs text-ink-muted mb-2">Does this capture your request correctly?</p>
                 <div className="flex gap-2">

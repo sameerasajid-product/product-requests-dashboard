@@ -8,12 +8,14 @@ import {
   ProductRequest,
   RequestAttachment,
   RequestStatus,
+  RequestRating,
   STATUS_ORDER,
   STATUS_LABELS,
   STATUS_COLORS,
   TYPE_LABELS,
   URGENCY_LABELS,
   RATING_CONFIG,
+  RATING_ORDER,
 } from "@/lib/types";
 
 type SortKey = "created_at" | "title" | "status" | "urgency" | "department";
@@ -47,6 +49,10 @@ export default function RequestsTable() {
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [downloading, setDownloading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<RequestStatus | "">("");
+  const [bulkRating, setBulkRating] = useState<RequestRating | "">("");
+  const [applyingBulk, setApplyingBulk] = useState(false);
 
   const loadRequests = useCallback(async () => {
     const { data } = await supabase
@@ -118,6 +124,57 @@ export default function RequestsTable() {
     } finally {
       setDownloading(false);
     }
+  }
+
+  function toggleRowSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) =>
+      prev.size === filtered.length ? new Set() : new Set(filtered.map((r) => r.id))
+    );
+  }
+
+  async function applyBulkStatus() {
+    if (!bulkStatus || selectedIds.size === 0) return;
+    setApplyingBulk(true);
+    await Promise.all(
+      Array.from(selectedIds).map((id) =>
+        fetch("/api/update-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requestId: id, newStatus: bulkStatus }),
+        })
+      )
+    );
+    setApplyingBulk(false);
+    setBulkStatus("");
+    setSelectedIds(new Set());
+    loadRequests();
+  }
+
+  async function applyBulkRating() {
+    if (!bulkRating || selectedIds.size === 0) return;
+    setApplyingBulk(true);
+    await Promise.all(
+      Array.from(selectedIds).map((id) =>
+        fetch("/api/update-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requestId: id, rating: bulkRating }),
+        })
+      )
+    );
+    setApplyingBulk(false);
+    setBulkRating("");
+    setSelectedIds(new Set());
+    loadRequests();
   }
 
   function toggleSort(key: SortKey) {
@@ -230,11 +287,62 @@ export default function RequestsTable() {
         <span className="text-xs text-admin-ink-muted ml-auto">{filtered.length} of {requests.length}</span>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4 bg-accent-soft border border-accent/20 rounded-lg px-3 py-2">
+          <span className="text-xs font-medium text-accent">{selectedIds.size} selected</span>
+          <select
+            value={bulkStatus}
+            onChange={(e) => setBulkStatus(e.target.value as RequestStatus | "")}
+            className="text-xs px-2 py-1.5 rounded-lg border border-admin-border bg-admin-surface text-admin-ink"
+          >
+            <option value="">Change status to…</option>
+            {STATUS_ORDER.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+          </select>
+          <button
+            onClick={applyBulkStatus}
+            disabled={!bulkStatus || applyingBulk}
+            className="text-xs font-medium bg-accent text-white px-2.5 py-1.5 rounded-lg disabled:opacity-50"
+          >
+            Apply
+          </button>
+          <select
+            value={bulkRating}
+            onChange={(e) => setBulkRating(e.target.value as RequestRating | "")}
+            className="text-xs px-2 py-1.5 rounded-lg border border-admin-border bg-admin-surface text-admin-ink"
+          >
+            <option value="">Set rating to…</option>
+            {RATING_ORDER.map((r) => <option key={r} value={r}>{RATING_CONFIG[r].emoji} {RATING_CONFIG[r].caption}</option>)}
+          </select>
+          <button
+            onClick={applyBulkRating}
+            disabled={!bulkRating || applyingBulk}
+            className="text-xs font-medium bg-accent text-white px-2.5 py-1.5 rounded-lg disabled:opacity-50"
+          >
+            Apply
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-xs text-admin-ink-muted hover:text-admin-ink underline ml-auto"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-admin-surface border border-admin-border rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-admin-border text-left text-admin-ink-muted text-xs uppercase tracking-wide">
+              <th className="px-4 py-3 font-medium w-8">
+                <input
+                  type="checkbox"
+                  checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                  onChange={toggleSelectAll}
+                  className="cursor-pointer"
+                />
+              </th>
               <th className="px-4 py-3 font-medium">Ticket</th>
               <SortHeader label="Title" sortField="title" />
               <SortHeader label="Status" sortField="status" />
@@ -249,7 +357,7 @@ export default function RequestsTable() {
           <tbody>
             {filtered.map((r) => {
               const colors = STATUS_COLORS[r.status];
-              const isOpenStatus = r.status !== "deployed" && r.status !== "rejected";
+              const isOpenStatus = r.status !== "deployed" && r.status !== "rejected" && r.status !== "cancelled";
               const open = daysOpen(r.created_at);
               const overdue = isOpenStatus && r.urgency === "high" && open > 7;
               return (
@@ -258,6 +366,14 @@ export default function RequestsTable() {
                   onClick={() => setSelected(r)}
                   className="border-b border-admin-border last:border-0 hover:bg-admin-bg/60 cursor-pointer"
                 >
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(r.id)}
+                      onChange={() => toggleRowSelected(r.id)}
+                      className="cursor-pointer"
+                    />
+                  </td>
                   <td className="px-4 py-3 text-admin-ink-muted ticket-id text-xs">
                     PR-{String(r.ticket_number).padStart(4, "0")}
                   </td>
@@ -298,7 +414,7 @@ export default function RequestsTable() {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-admin-ink-muted">
+                <td colSpan={10} className="px-4 py-10 text-center text-admin-ink-muted">
                   No requests match your filters.
                 </td>
               </tr>

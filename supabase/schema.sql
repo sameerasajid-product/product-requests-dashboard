@@ -16,7 +16,8 @@ create type request_status as enum (
   'in_sprint',
   'deployed',
   'delayed_next_sprint',
-  'rejected'
+  'rejected',
+  'cancelled'
 );
 
 create type request_type as enum (
@@ -172,6 +173,21 @@ create table request_attachments (
 
 create index request_attachments_request_id_idx on request_attachments(request_id);
 
+-- ----------------------------
+-- COMMENTS
+-- A lightweight two-way thread between the requester and Product on a
+-- specific request. Append-only (no edit/delete) to keep things simple.
+-- ----------------------------
+create table request_comments (
+  id uuid primary key default gen_random_uuid(),
+  request_id uuid not null references requests(id) on delete cascade,
+  author_id uuid not null references profiles(id),
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index request_comments_request_id_idx on request_comments(request_id);
+
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
@@ -179,6 +195,7 @@ alter table profiles enable row level security;
 alter table requests enable row level security;
 alter table status_history enable row level security;
 alter table request_attachments enable row level security;
+alter table request_comments enable row level security;
 
 -- Helper: is the current user a product-team admin?
 create or replace function is_admin()
@@ -223,6 +240,64 @@ create policy "Admins can update any request"
   on requests for update
   using (is_admin());
 
+-- Requesters can edit their own request's title/description, or cancel it,
+-- but ONLY while it's still "submitted" (before Product starts reviewing).
+-- The trigger below is the real enforcement — this policy is a first filter.
+create policy "Requesters can edit or cancel their own submitted request"
+  on requests for update
+  using (requested_by = auth.uid() and status = 'submitted')
+  with check (requested_by = auth.uid());
+
+-- Safety net: even if a requester's update somehow slips past the policy
+-- above (e.g. a crafted request), this trigger locks every column except
+-- title/description/status back to its original value, and only allows
+-- status to move to 'cancelled' — never anything else. Server routes
+-- (submit-request, update-status) use the service role key, which this
+-- trigger intentionally lets through untouched.
+create or replace function enforce_requester_update_limits()
+returns trigger as $$
+begin
+  if auth.role() = 'service_role' then
+    return new;
+  end if;
+
+  if is_admin() then
+    return new;
+  end if;
+
+  if old.status != 'submitted' then
+    raise exception 'You can only edit or cancel a request while it is still Submitted.';
+  end if;
+
+  if new.status not in ('submitted', 'cancelled') then
+    raise exception 'You can only cancel your own request, not change it to another status.';
+  end if;
+
+  new.urgency := old.urgency;
+  new.type := old.type;
+  new.department := old.department;
+  new.sprint_name := old.sprint_name;
+  new.eta_label := old.eta_label;
+  new.rating := old.rating;
+  new.assigned_to := old.assigned_to;
+  new.requested_by := old.requested_by;
+  new.prd_problem_statement := old.prd_problem_statement;
+  new.prd_user_stories := old.prd_user_stories;
+  new.prd_acceptance_criteria := old.prd_acceptance_criteria;
+  new.prd_affected_teams := old.prd_affected_teams;
+  new.prd_success_metrics := old.prd_success_metrics;
+  new.prd_additional_notes := old.prd_additional_notes;
+  new.ticket_number := old.ticket_number;
+  new.created_at := old.created_at;
+
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger requests_enforce_requester_update_limits
+  before update on requests
+  for each row execute function enforce_requester_update_limits();
+
 -- STATUS HISTORY policies
 create policy "Users can view history for their own requests"
   on status_history for select
@@ -263,6 +338,36 @@ create policy "Users can add attachments to their own requests"
     )
   );
 
+-- COMMENTS policies
+create policy "Users can view comments on their own requests"
+  on request_comments for select
+  using (
+    exists (
+      select 1 from requests
+      where requests.id = request_comments.request_id
+      and requests.requested_by = auth.uid()
+    )
+  );
+
+create policy "Admins can view all comments"
+  on request_comments for select
+  using (is_admin());
+
+create policy "Users can comment on their own requests"
+  on request_comments for insert
+  with check (
+    author_id = auth.uid()
+    and exists (
+      select 1 from requests
+      where requests.id = request_comments.request_id
+      and requests.requested_by = auth.uid()
+    )
+  );
+
+create policy "Admins can comment on any request"
+  on request_comments for insert
+  with check (author_id = auth.uid() and is_admin());
+
 -- ============================================================
 -- STORAGE (file/image attachments)
 -- ============================================================
@@ -286,6 +391,7 @@ create policy "Anyone can view attachment files"
 alter publication supabase_realtime add table requests;
 alter publication supabase_realtime add table status_history;
 alter publication supabase_realtime add table request_attachments;
+alter publication supabase_realtime add table request_comments;
 
 -- ============================================================
 -- MAKE SOMEONE A PRODUCT-TEAM ADMIN (run manually, per person)

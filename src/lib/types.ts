@@ -5,7 +5,8 @@ export type RequestStatus =
   | "in_sprint"
   | "deployed"
   | "delayed_next_sprint"
-  | "rejected";
+  | "rejected"
+  | "cancelled";
 
 export type RequestType = "new_feature" | "enhancement";
 export type RequestUrgency = "low" | "medium" | "high";
@@ -20,6 +21,7 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   deployed: "Deployed",
   delayed_next_sprint: "Delayed - Next Sprint",
   rejected: "Rejected",
+  cancelled: "Cancelled",
 };
 
 export const STATUS_ORDER: RequestStatus[] = [
@@ -30,6 +32,7 @@ export const STATUS_ORDER: RequestStatus[] = [
   "deployed",
   "delayed_next_sprint",
   "rejected",
+  "cancelled",
 ];
 
 // Statuses that count as "still open" — these block a user from opening a new request.
@@ -63,6 +66,7 @@ export const STATUS_COLORS: Record<
     border: "border-status-delayed/30",
   },
   rejected: { text: "text-status-rejected", bg: "bg-status-rejected-bg", border: "border-status-rejected/30" },
+  cancelled: { text: "text-ink-muted", bg: "bg-black/5", border: "border-black/10" },
 };
 
 export const TYPE_LABELS: Record<RequestType, string> = {
@@ -153,4 +157,13 @@ export interface StatusHistoryEntry {
   note: string | null;
   changed_by: string | null;
   changed_at: string;
+}
+
+export interface RequestComment {
+  id: string;
+  request_id: string;
+  author_id: string;
+  body: string;
+  created_at: string;
+  author?: { full_name: string | null; role: UserRole };
 }

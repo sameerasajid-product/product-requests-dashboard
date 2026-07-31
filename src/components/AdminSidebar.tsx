@@ -22,6 +22,7 @@ export default function AdminSidebar({
 
   const navItems = [
     { href: "/admin", label: "Board" },
+    { href: "/admin/dashboard", label: "Dashboard" },
     { href: "/admin/users", label: "Users" },
   ];
 
