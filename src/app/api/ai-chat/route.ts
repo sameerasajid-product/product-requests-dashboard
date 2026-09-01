@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // ============================================================
 // Groq (free tier) — replaces Google Gemini. Groq's free tier has a
-// much higher daily request cap (1,000/day on llama-3.3-70b-versatile
+// much higher daily request cap (1,000/day on llama-3.3-70b-versatile — since renamed, see below)
 // vs Gemini's 20/day), which is what this app actually needs given
 // each completed chatbot conversation uses ~7-8 API calls.
 // Get a free key at https://console.groq.com/keys and
@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 // Override with GROQ_MODEL env var if you want a different model.
 // Check current models & free-tier limits at https://console.groq.com/docs/rate-limits
-const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
