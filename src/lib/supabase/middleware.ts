@@ -27,10 +27,13 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isAuthPage = path === "/login" || path === "/signup";
+  const isAuthPage =
+    path === "/login" || path === "/signup" || path === "/forgot-password";
+  // Reachable logged-out (callback) or logged-in via recovery link (reset-password)
+  const isRecoveryPage = path === "/reset-password" || path.startsWith("/auth/callback");
 
   // Not logged in and trying to hit a protected page -> send to login
-  if (!user && !isAuthPage) {
+  if (!user && !isAuthPage && !isRecoveryPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

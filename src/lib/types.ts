@@ -45,7 +45,7 @@ export const OPEN_STATUSES: RequestStatus[] = [
   "delayed_next_sprint",
 ];
 
-export const MAX_OPEN_REQUESTS = 3;
+export const MAX_OPEN_REQUESTS = 5;
 
 export const STATUS_COLORS: Record<
   RequestStatus,
